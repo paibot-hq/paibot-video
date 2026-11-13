@@ -32,6 +32,8 @@ paibot-video render video.json -o video.mp4
 
 No coordinates and no timings are needed. Elements stack themselves inside the safe area, and each scene lasts as long as its narration.
 
+Add `"theme": "neon"` (or `pop`, `cinematic`) for a finished look in one line: drifting light, glowing text that bounces in word by word, glitch cuts, karaoke captions, film grain and sound effects. Mark words with `**…**` to colour them.
+
 ## Made for AI agents
 
 Most video tools assume a person is watching the preview. Paibot Video gives an agent what it needs to work alone:
@@ -52,12 +54,12 @@ Most video tools assume a person is watching the preview. Paibot Video gives an 
   It checks what a viewer would notice: text going off screen or into the area that phone apps cover, stacks that don't fit, overlapping text, low contrast, text too small for a phone, text shown too briefly to read, and narration that would be cut off.
 - **`--sheet sheet.png`** (or `paibot-video sheet`) saves every scene in one image, so a model that can see images checks the whole video with one look:
 
-  ![Contact sheet of all scenes](docs/sheet.png)
+  ![Contact sheet of all scenes](docs/sheet.jpg)
 
 - **`paibot-video frame --scene 3`** renders a single scene as PNG.
 - Everything is deterministic: the same JSON always gives the same video.
 
-A typical agent loop is *write JSON → `check --json --sheet` → fix → repeat → `render`*. The example in [examples/comprehension.json](examples/comprehension.json) was made that way.
+A typical agent loop is *write JSON → `check --json --sheet` → fix → repeat → `render`*. The examples in [examples/](examples/) were made that way.
 
 ## Elements
 
@@ -71,7 +73,18 @@ A typical agent loop is *write JSON → `check --json --sheet` → fix → repea
 | `counter` | A number counting up, with prefix and suffix. |
 | `bars` | A horizontal bar chart whose bars grow in. |
 
-Every element has `start`, `end`, `animate` (`fade`, `pop`, `slide-up/down/left/right`, `zoom`, `type`, `none`), `out: "fade"` and `opacity`. Scenes enter with `fade`, `slide`, `wipe`, `zoom` or `none`. Backgrounds can be a colour, a gradient or a photo (with `dim`).
+Every element has `start`, `end`, `animate` (`fade`, `pop`, `words`, `wipe`, `blur`, `slide-up/down/left/right`, `zoom`, `type`, `none`), `out: "fade"`, `opacity`, `glow` and `shadow`; text can have an outline (`stroke`). Scenes enter with `fade`, `slide`, `wipe`, `zoom`, `flash`, `glitch` or `none`, and the `camera` can push in, pull out or drift. Backgrounds can be a colour, a gradient, a photo (with `dim`) or moving colour orbs. `grain` and `vignette` give a film look.
+
+## Themes
+
+| theme | look |
+| --- | --- |
+| `clean` | Default. Plain and quiet. |
+| `neon` | Drifting colour orbs, glowing text, word-by-word entrances, glitch cuts, karaoke captions, grain, sound effects. |
+| `pop` | Bright orbs, outlined text with shadows, slide cuts, karaoke captions, sound effects. |
+| `cinematic` | Dark and grainy with a vignette, text emerging from a blur, slow camera push. |
+
+A theme only fills in defaults; anything you write yourself wins.
 
 Run `paibot-video guide` for the full list of fields.
 
@@ -79,7 +92,8 @@ Run `paibot-video guide` for the full list of fields.
 
 - **`narration`**: text that is spoken. On macOS it uses `say` (a Japanese voice is picked automatically for Japanese text). On Linux it uses `espeak-ng`. You can plug in any TTS with `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"`. Results are cached in `.paibot-video-cache/`.
 - **`audio`**: a recorded file for the scene instead.
-- **`captions: true`** shows the narration as subtitles, split by sentence and timed to the voice.
+- **`captions: true`** shows the narration as subtitles, split by sentence and timed to the voice. `captionStyle: "karaoke"` shows big outlined words that light up as they are spoken.
+- **`sfx: true`** adds a whoosh on transitions and a pop when things land.
 - **`music`**: background music, looped, mixed under the voice and faded out at the end.
 
 ## Commands

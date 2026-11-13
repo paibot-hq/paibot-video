@@ -11,7 +11,9 @@ from PIL import Image, ImageDraw
 
 from .render import Renderer
 from .text import font
-from .timeline import Timeline, need
+import os
+
+from .timeline import Timeline, need, sfx_file
 
 
 def audio_inputs(r: Renderer, tl: Timeline) -> tuple[list[str], str | None]:
@@ -27,6 +29,13 @@ def audio_inputs(r: Renderer, tl: Timeline) -> tuple[list[str], str | None]:
         ms = int(round((st.start + st.audio_start) * 1000))
         parts.append(f"[{n}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={ms}|{ms}[v{n}]")
         labels.append(f"[v{n}]")
+        n += 1
+    cache = os.path.join(r.spec.base_dir or ".", ".paibot-video-cache")
+    for at, kind in tl.sfx:
+        args += ["-i", sfx_file(kind, cache)]
+        ms = int(round(at * 1000))
+        parts.append(f"[{n}:a]aformat=channel_layouts=stereo,volume=0.55,adelay={ms}|{ms}[s{n}]")
+        labels.append(f"[s{n}]")
         n += 1
     music = r.spec.top["music"]
     if music:

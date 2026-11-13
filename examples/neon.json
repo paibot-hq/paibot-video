@@ -1,0 +1,132 @@
+{
+  "title": "リスト内包表記を30秒で (neon)",
+  "preset": "shorts",
+  "captions": true,
+  "scenes": [
+    {
+      "narration": "Pythonのリスト内包表記、30秒で分かります。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "リスト**内包表記**",
+          "size": 130
+        },
+        {
+          "type": "text",
+          "text": "30秒でわかる Python",
+          "size": 60,
+          "weight": "regular",
+          "color": "#cbd5e1",
+          "start": 0.5
+        }
+      ]
+    },
+    {
+      "narration": "たとえば、1から5の二乗のリストを作るとき、ふつうはこう書きます。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "ふつうの書き方",
+          "size": 80
+        },
+        {
+          "type": "code",
+          "code": "squares = []\nfor n in range(1, 6):\n    squares.append(n * n)",
+          "animate": "type",
+          "start": 0.4
+        }
+      ],
+      "camera": "pull"
+    },
+    {
+      "narration": "内包表記なら、たった1行です。",
+      "transition": "flash",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**1行**で書ける",
+          "size": 110
+        },
+        {
+          "type": "code",
+          "code": "squares = [n * n for n in range(1, 6)]",
+          "size": 44,
+          "animate": "type",
+          "start": 0.3
+        }
+      ]
+    },
+    {
+      "narration": "条件を付けて、偶数だけを取り出すこともできます。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**条件**もつけられる",
+          "size": 90
+        },
+        {
+          "type": "code",
+          "code": "evens = [n for n in nums\n         if n % 2 == 0]",
+          "size": 44,
+          "start": 0.3
+        }
+      ]
+    },
+    {
+      "narration": "速さも、forループより少し速くなることが多いです。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "速さの目安",
+          "size": 90
+        },
+        {
+          "type": "bars",
+          "items": [
+            {
+              "label": "for",
+              "value": 100,
+              "color": "#94a3b8"
+            },
+            {
+              "label": "内包表記",
+              "value": 72
+            }
+          ],
+          "suffix": " ms",
+          "start": 0.4
+        },
+        {
+          "type": "text",
+          "text": "※ 100万件の目安",
+          "size": 40,
+          "weight": "regular",
+          "color": "#94a3b8",
+          "start": 1.2
+        }
+      ]
+    },
+    {
+      "narration": "ポイントは三つ。短い、読みやすい、そして少し速い。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**まとめ**",
+          "size": 100
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "短く書ける",
+            "読みやすい",
+            "少し速い"
+          ],
+          "size": 64,
+          "start": 0.4,
+          "stagger": 0.6
+        }
+      ]
+    }
+  ],
+  "theme": "neon"
+}

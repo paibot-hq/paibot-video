@@ -38,6 +38,19 @@ renders one scene as a PNG.
 - Sizes are pixels in that resolution. Positions can be pixels or percentages (`"50%"`).
 - Colours are CSS-style: `"#38bdf8"`, `"#00000099"`, `"white"`.
 
+## Look: start from a theme
+
+Set `"theme"` and you get a finished look without tuning anything:
+
+- `neon`: drifting colour orbs, glowing text, words that bounce in, glitch cuts,
+  karaoke captions, film grain, sound effects.
+- `pop`: bright orbs, outlined text with shadows, slide cuts, karaoke captions, sound effects.
+- `cinematic`: dark, grainy, vignetted; text fades in from a blur; slow camera push.
+- `clean` (default): plain and quiet.
+
+Anything you set yourself overrides the theme. Mark key words with `**double asterisks**`
+in `text` to colour them with the accent ("リスト**内包表記**").
+
 ## Layout: let the stack do it
 
 Leave out `x` and `y`. Elements without them are stacked top to bottom,
@@ -66,9 +79,24 @@ they are the centre of the element unless you change `anchor`.
 | `counter` | `to` | `from`, `prefix`, `suffix`, `decimals`, `duration` |
 | `bars` | `items` (`[{"label", "value"}]`) | `suffix`, `max`, `color` |
 
-Every element also takes `start`, `end`, `animate` (`fade`, `pop`, `slide-up`,
-`slide-down`, `slide-left`, `slide-right`, `zoom`, `type`, `none`), `animDuration`,
-`out: "fade"` and `opacity`.
+Every element also takes `start`, `end`, `animate`, `animDuration`, `out: "fade"`,
+`opacity`, `glow` (a colour) and `shadow` (true/false). `text` and `counter` take
+`stroke` (outline width) and `strokeColor`.
+
+Entrance animations: `fade`, `pop`, `words` (word by word / character by character,
+text only), `wipe`, `blur`, `slide-up`, `slide-down`, `slide-left`, `slide-right`,
+`zoom`, `type` (text and code), `none`.
+
+## Motion and finish
+
+- Backgrounds: a colour, `{"gradient": [...], "angle": 160}`, `{"image": "photo.jpg", "dim": 0.4}`,
+  or moving light `{"orbs": ["#c026d3", "#0891b2"], "base": "#05010f", "speed": 1}`.
+- `camera`: `push` (slow zoom in), `pull`, `drift`, `none`, for the whole video or per scene.
+- Transitions: `fade`, `slide`, `wipe`, `zoom`, `flash`, `glitch`, `none`.
+- `grain` and `vignette` (0..1) add film grain and dark corners.
+- `captionStyle`: `box` (subtitles on a dark box) or `karaoke` (big outlined words
+  that light up as they are spoken). Long sentences are split so captions stay at two lines.
+- `sfx: true` adds a whoosh on transitions and a pop when a scene's first element lands.
 
 ## Good videos
 

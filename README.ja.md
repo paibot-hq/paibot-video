@@ -32,6 +32,8 @@ paibot-video render video.json -o video.mp4
 
 座標も秒数も書かなくて構いません。要素はセーフエリア（スマホのアプリのボタンなどに隠れない範囲）の中で自動で縦に並び、シーンの長さは読み上げの長さで決まります。
 
+`"theme": "neon"`（ほかに `pop`、`cinematic`）を 1 行足すだけで、仕上がった見た目になります。動く光の背景、光る文字が 1 語ずつ跳ねて出る演出、グリッチの切り替え、カラオケ字幕、フィルムの粒子、効果音が付きます。`**…**` で囲んだ語は色が変わります。
+
 ## AI エージェント向けの作り
 
 たいていの動画ツールは、人がプレビューを見る前提で作られています。Paibot Video は、エージェントが一人で作業を進めるのに要るものをそろえています。
@@ -52,12 +54,12 @@ paibot-video render video.json -o video.mp4
   見る人が気づくことを調べます。たとえば、文字が画面の外やスマホのアプリが重なる場所に出る、要素が縦に入りきらない、文字同士が重なる、背景とのコントラストが低い、スマホでは小さすぎる、読み切れないうちに消える、読み上げが途中で切れる、などです。
 - **`--sheet sheet.png`**（または `paibot-video sheet`）：全シーンを 1 枚の画像にまとめます。画像を見られるモデルなら、一目で動画全体を確かめられます。
 
-  ![全シーンの一覧](docs/sheet.png)
+  ![全シーンの一覧](docs/sheet.jpg)
 
 - **`paibot-video frame --scene 3`**：1 シーンを PNG で出します。
 - 結果はいつも同じです。同じ JSON からは必ず同じ動画ができます。
 
-エージェントの作業は「JSON を書く → `check --json --sheet` → 直す → 繰り返す → `render`」の流れになります。[examples/comprehension.json](examples/comprehension.json) はこの流れで作りました。
+エージェントの作業は「JSON を書く → `check --json --sheet` → 直す → 繰り返す → `render`」の流れになります。[examples/](examples/) の台本はこの流れで作りました。
 
 ## 要素
 
@@ -71,7 +73,18 @@ paibot-video render video.json -o video.mp4
 | `counter` | カウントアップする数字。前後に文字を付けられます。 |
 | `bars` | 伸びながら現れる横棒グラフ。 |
 
-どの要素にも `start`、`end`、`animate`（`fade`、`pop`、`slide-up/down/left/right`、`zoom`、`type`、`none`）、`out: "fade"`、`opacity` があります。シーンの入り方は `fade`、`slide`、`wipe`、`zoom`、`none` から選べます。背景は単色・グラデーション・写真（`dim` で暗くできる）が使えます。
+どの要素にも `start`、`end`、`animate`（`fade`、`pop`、`words`、`wipe`、`blur`、`slide-up/down/left/right`、`zoom`、`type`、`none`）、`out: "fade"`、`opacity`、`glow`（発光）、`shadow`（影）があり、文字には縁取り（`stroke`）も付けられます。シーンの入り方は `fade`、`slide`、`wipe`、`zoom`、`flash`、`glitch`、`none` から選べ、`camera` で寄る・引く・流れる動きを付けられます。背景は単色・グラデーション・写真（`dim` で暗くできる）・動く光の玉が使えます。`grain`（粒子）と `vignette`（周辺を暗く）でフィルムのような質感になります。
+
+## テーマ
+
+| テーマ | 見た目 |
+| --- | --- |
+| `clean` | 既定。素直で落ち着いた見た目。 |
+| `neon` | 動く光の玉、光る文字、1 語ずつ出る演出、グリッチの切り替え、カラオケ字幕、粒子、効果音。 |
+| `pop` | 明るい光の玉、縁取りと影の付いた文字、スライドの切り替え、カラオケ字幕、効果音。 |
+| `cinematic` | 暗い画面に粒子と周辺の暗さ、ぼかしから浮かぶ文字、ゆっくり寄るカメラ。 |
+
+テーマは既定値を決めるだけです。自分で書いた項目が優先されます。
 
 すべての項目は `paibot-video guide` で見られます。
 
@@ -79,7 +92,8 @@ paibot-video render video.json -o video.mp4
 
 - **`narration`**：読み上げる文章です。macOS では `say` を使い、日本語の文章には日本語の声を自動で選びます。Linux では `espeak-ng` を使います。`PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"` のように書けば、どの読み上げエンジンでもつなげられます。作った音声は `.paibot-video-cache/` に取っておき、使い回します。
 - **`audio`**：録音済みのファイルをシーンで流します。
-- **`captions: true`**：読み上げを字幕にします。文ごとに区切り、声に合わせて切り替えます。
+- **`captions: true`**：読み上げを字幕にします。文ごとに区切り、声に合わせて切り替えます。`captionStyle: "karaoke"` にすると、大きな縁取り文字が話している所から色づきます。
+- **`sfx: true`**：切り替えに「シュッ」、登場に「ポン」という効果音を付けます。
 - **`music`**：BGM です。繰り返し流し、声の下に混ぜ、最後はフェードアウトします。
 
 ## コマンド

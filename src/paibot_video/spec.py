@@ -23,8 +23,9 @@ PRESETS = {
     "portrait": (1080, 1350),
 }
 ANCHORS = ("center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right")
-ANIMS_IN = ("fade", "pop", "slide-up", "slide-down", "slide-left", "slide-right", "zoom", "type", "none")
-TRANSITIONS = ("fade", "slide", "wipe", "zoom", "none")
+ANIMS_IN = ("fade", "pop", "words", "wipe", "blur", "slide-up", "slide-down", "slide-left", "slide-right", "zoom", "type", "none")
+TRANSITIONS = ("fade", "slide", "wipe", "zoom", "flash", "glitch", "none")
+CAMERAS = ("none", "push", "pull", "drift")
 
 
 @dataclass
@@ -75,6 +76,8 @@ COMMON = {
     "animDuration": F("num", 0.5, min=0, doc="Length of the entrance animation in seconds"),
     "out": F("choice", "none", choices=("fade", "none"), doc="Exit animation before `end`"),
     "opacity": F("num", 1.0, min=0, doc="0..1"),
+    "glow": F("color", None, doc="Neon glow colour around the element"),
+    "shadow": F("bool", False, doc="Soft drop shadow"),
 }
 
 ELEMENTS: dict[str, dict[str, F]] = {
@@ -89,6 +92,9 @@ ELEMENTS: dict[str, dict[str, F]] = {
         "background": F("color", None, doc="Box behind the text"),
         "padding": F("num", 28, min=0),
         "radius": F("num", 28, min=0),
+        "stroke": F("num", 0, min=0, doc="Outline width in px"),
+        "strokeColor": F("color", "#000000"),
+        "highlightColor": F("color", None, doc="Colour for **marked** words (default: spec `accent`)"),
     },
     "bullets": {
         "items": F("strlist", required=True, doc="One string per bullet"),
@@ -136,6 +142,8 @@ ELEMENTS: dict[str, dict[str, F]] = {
         "size": F("num", 160, min=1),
         "color": F("color", None, doc="Default: spec `accent`"),
         "weight": F("choice", "bold", choices=("regular", "bold")),
+        "stroke": F("num", 0, min=0),
+        "strokeColor": F("color", "#000000"),
     },
     "bars": {
         "items": F("any", required=True, doc='[{"label": "A", "value": 3, "color": "#..."}]'),
@@ -165,12 +173,14 @@ SCENE = {
     "transition": F("choice", None, choices=TRANSITIONS, doc="How this scene enters"),
     "gap": F("num", 48, min=0, doc="Space between stacked elements in px"),
     "valign": F("choice", "center", choices=("top", "center", "bottom"), doc="Where the stack sits"),
+    "camera": F("choice", None, choices=CAMERAS, doc="Slow camera move during the scene (default: spec `camera`)"),
     "note": F("str", None, doc="Free text, ignored by the renderer"),
 }
 
 TOP = {
     "$schema": F("str", None),
     "title": F("str", None),
+    "theme": F("choice", "clean", choices=("clean", "neon", "pop", "cinematic"), doc="A ready-made look; any field you set yourself wins"),
     "preset": F("choice", "shorts", choices=tuple(PRESETS), doc="shorts 1080x1920, landscape 1920x1080, square, portrait 1080x1350"),
     "width": F("int", None, min=16),
     "height": F("int", None, min=16),
@@ -184,6 +194,12 @@ TOP = {
     "voice": F("str", None, doc="TTS voice name, e.g. Kyoko or Samantha for macOS `say`"),
     "rate": F("int", None, min=50, doc="TTS speaking rate (words per minute for `say`)"),
     "captions": F("bool", False, doc="Show the narration as captions"),
+    "captionStyle": F("choice", "box", choices=("box", "karaoke"), doc="box: subtitles on a dark box; karaoke: big outlined words lit up as they are spoken"),
+    "captionColor": F("color", None, doc="Highlight colour for karaoke captions (default: accent)"),
+    "camera": F("choice", "none", choices=CAMERAS, doc="Default slow camera move for every scene"),
+    "grain": F("num", 0, min=0, doc="Film grain strength, 0..1"),
+    "vignette": F("num", 0, min=0, doc="Darkened corners, 0..1"),
+    "sfx": F("bool", False, doc="Whoosh on transitions and a pop when a scene's first element appears"),
     "music": F("any", None, doc='{"src": "bgm.mp3", "volume": 0.25, "fadeOut": 1.5}'),
     "transition": F("choice", "fade", choices=TRANSITIONS, doc="Default scene transition"),
     "transitionDuration": F("num", 0.4, min=0),
@@ -292,6 +308,21 @@ def _check_background(v: Any, path: str, issues: list[Issue], base_dir: str) -> 
                 issues.append(Issue("error", f"{path}.angle", "expected a number of degrees"))
                 ang = 90
             return {"gradient": cols, "angle": ang}
+        if "orbs" in v:
+            extra = set(v) - {"orbs", "base", "speed"}
+            if extra:
+                issues.append(Issue("error", f"{path}.{sorted(extra)[0]}", "unknown field", "an orbs background takes `orbs`, `base` and `speed`"))
+            o = v["orbs"]
+            if not (isinstance(o, list) and 1 <= len(o) <= 8):
+                issues.append(Issue("error", f"{path}.orbs", "expected a list of 1 to 8 colours"))
+                return {"color": "#000000"}
+            cols = [_check_value(c, F("color"), f"{path}.orbs[{i}]", issues, base_dir) or "#000000" for i, c in enumerate(o)]
+            base = _check_value(v.get("base", "#05010f"), F("color"), f"{path}.base", issues, base_dir) or "#000000"
+            speed = v.get("speed", 1.0)
+            if isinstance(speed, bool) or not isinstance(speed, (int, float)) or speed < 0:
+                issues.append(Issue("error", f"{path}.speed", "expected a number >= 0"))
+                speed = 1.0
+            return {"orbs": cols, "base": base, "speed": speed}
         if "image" in v:
             extra = set(v) - {"image", "dim"}
             if extra:
@@ -302,8 +333,37 @@ def _check_background(v: Any, path: str, issues: list[Issue], base_dir: str) -> 
                 issues.append(Issue("error", f"{path}.dim", "expected a number from 0 to 1"))
                 dim = 0.0
             return {"image": src, "dim": dim}
-    issues.append(Issue("error", path, "expected a colour, {\"gradient\": [...]} or {\"image\": ...}"))
+    issues.append(Issue("error", path, "expected a colour, {\"gradient\": [...]}, {\"orbs\": [...]} or {\"image\": ...}"))
     return {"color": "#000000"}
+
+
+THEMES: dict[str, dict] = {
+    "clean": {"top": {}, "el": {}},
+    "neon": {
+        "top": {"background": {"orbs": ["#c026d3", "#0891b2", "#6d28d9", "#e11d48"], "base": "#05010f"},
+                "accent": "#22d3ee", "color": "#ffffff", "transition": "glitch", "captionStyle": "karaoke",
+                "grain": 0.35, "vignette": 0.6, "sfx": True, "camera": "push"},
+        "el": {"text": {"glow": "#d946ef", "animate": "words"}, "counter": {"glow": "#22d3ee"},
+               "bars": {"glow": "#22d3ee"}, "code": {"background": "#0b0820e6", "glow": "#7c3aed"},
+               "bullets": {"bulletColor": "#f0abfc"}},
+    },
+    "pop": {
+        "top": {"background": {"orbs": ["#f97316", "#facc15", "#ec4899", "#8b5cf6"], "base": "#1e1b4b"},
+                "accent": "#facc15", "color": "#ffffff", "transition": "slide", "captionStyle": "karaoke",
+                "sfx": True, "camera": "drift"},
+        "el": {"text": {"stroke": 10, "strokeColor": "#111827", "animate": "words", "shadow": True},
+               "counter": {"stroke": 10, "strokeColor": "#111827", "shadow": True},
+               "bullets": {"shadow": True}, "code": {"shadow": True}, "image": {"shadow": True}},
+    },
+    "cinematic": {
+        "top": {"background": {"gradient": ["#0c0a09", "#1c1917", "#0c0a09"], "angle": 180},
+                "accent": "#fbbf24", "color": "#f5f5f4", "transition": "fade", "transitionDuration": 0.8,
+                "grain": 0.6, "vignette": 0.85, "camera": "push"},
+        "el": {"text": {"animate": "blur", "weight": "regular", "animDuration": 1.1},
+               "bullets": {"animate": "slide-up", "animDuration": 0.8}, "image": {"animate": "zoom"},
+               "counter": {"weight": "regular"}},
+    },
+}
 
 
 @dataclass
@@ -320,6 +380,9 @@ class Spec:
 
 def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None, list[Issue]]:
     issues: list[Issue] = []
+    theme = THEMES.get(data.get("theme", "clean"), THEMES["clean"]) if isinstance(data, dict) else THEMES["clean"]
+    if isinstance(data, dict):
+        data = {**theme["top"], **data}
     top = _check_obj(data, TOP, "$", issues, base_dir)
     if not isinstance(data, dict):
         return None, issues
@@ -375,10 +438,14 @@ def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None
                 else:
                     issues.append(Issue("error", ep, "expected an object"))
                 continue
-            el = _check_obj(e, {**COMMON, **ELEMENTS[t]}, ep, issues, base_dir)
+            fields = {**COMMON, **ELEMENTS[t]}
+            themed = {k: v for k, v in theme["el"].get(t, {}).items() if k in fields}
+            el = _check_obj({**themed, **e}, fields, ep, issues, base_dir)
             el["_path"] = ep
             if el["animate"] is None:
                 el["animate"] = DEFAULT_ANIM[t]
+            if el["animate"] == "words" and t not in ("text", "bullets"):
+                el["animate"] = "pop"
             if el["animate"] == "type" and t not in ("text", "code"):
                 issues.append(Issue("error", f"{ep}.animate", '"type" only works on text and code'))
                 el["animate"] = "fade"
@@ -467,6 +534,7 @@ def json_schema() -> dict:
         color,
         {"type": "object", "properties": {"gradient": {"type": "array", "items": color, "minItems": 2}, "angle": {"type": "number", "default": 90}}, "required": ["gradient"], "additionalProperties": False},
         {"type": "object", "properties": {"image": {"type": "string"}, "dim": {"type": "number", "minimum": 0, "maximum": 1}}, "required": ["image"], "additionalProperties": False},
+        {"type": "object", "description": "Blurred colour orbs drifting slowly", "properties": {"orbs": {"type": "array", "items": color, "minItems": 1, "maxItems": 8}, "base": color, "speed": {"type": "number", "minimum": 0, "default": 1}}, "required": ["orbs"], "additionalProperties": False},
     ]}
     elements = []
     for t, fields in ELEMENTS.items():

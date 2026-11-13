@@ -33,6 +33,9 @@ def _bg_colors(r: Renderer, i: int) -> list[tuple] | None:
         return [parse_color(bg["color"])]
     if "gradient" in bg:
         return [parse_color(c) for c in bg["gradient"]]
+    if "orbs" in bg:
+        base = parse_color(bg["base"])
+        return [base] + [(*_blend_on((*parse_color(c)[:3], 150), base), 255) for c in bg["orbs"]]
     return None  # photo: unknown
 
 
@@ -54,7 +57,7 @@ def _text_items(el: dict) -> str:
 def lint(r: Renderer) -> list[Issue]:
     issues: list[Issue] = []
     W, H, k = r.W, r.H, r.k
-    left, top, right, bottom = safe_area(W, H, bool(r.spec.top["captions"]))
+    left, top, right, bottom = safe_area(W, H, r.cap_style)
     min_size = min(r.spec.width, r.spec.height) * 0.035
 
     for i, (sc, placed) in enumerate(zip(r.spec.scenes, r.scenes)):
@@ -119,12 +122,15 @@ def lint(r: Renderer) -> list[Issue]:
                         behind = None
                 else:
                     behind = bg_cols
-                if behind:
+                outlined = el.get("stroke", 0) >= 3 and contrast(fg, parse_color(el["strokeColor"])) >= 4.5
+                if outlined:
+                    pass  # an outline keeps text readable on any background
+                elif behind:
                     worst = min(contrast(fg, b) for b in behind)
                     if worst < 3:
                         issues.append(Issue("warning", f"{ep}.color", f"low contrast with the background ({worst:.1f}:1)",
                                             "aim for 4.5:1 or more: light text on dark backgrounds or the reverse"))
-                elif bg_cols is None and not (t == "text" and el["background"]):
+                elif bg_cols is None and not (t == "text" and el["background"]) and not el.get("glow"):
                     issues.append(Issue("warning", ep, "text over a photo can be unreadable",
                                         "give the text a `background` such as \"#000000aa\", or set `dim` on the background image"))
 
