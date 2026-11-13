@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+dist/
+.paibot-video-cache/
+.pytest_cache/
+*.mp4
+/sheet.png
+/examples/sheet.png
+/frame.png
+/examples/frame.png
+.tmp-*

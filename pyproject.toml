@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "paibot-video"
+version = "0.1.0"
+description = "Turn a JSON spec into an MP4 with narration, captions, charts and animation. Built to be written by people and by AI."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "sanofc" }]
+requires-python = ">=3.10"
+dependencies = ["Pillow>=10.1"]
+keywords = ["video", "ffmpeg", "text-to-video", "shorts", "ai", "llm", "json"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Video",
+]
+
+[project.scripts]
+paibot-video = "paibot_video.cli:main"
+
+[project.urls]
+Repository = "https://github.com/paibot-hq/paibot-video"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

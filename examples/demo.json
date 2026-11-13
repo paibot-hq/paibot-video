@@ -1,0 +1,81 @@
+{
+  "title": "Paibot Video demo",
+  "preset": "shorts",
+  "captions": true,
+  "background": {
+    "gradient": [
+      "#0b1024",
+      "#1e1b4b"
+    ],
+    "angle": 160
+  },
+  "accent": "#38bdf8",
+  "scenes": [
+    {
+      "narration": "JSONを書くだけで、動画ができます。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "JSON → 動画",
+          "size": 140
+        },
+        {
+          "type": "text",
+          "text": "Paibot Video",
+          "size": 64,
+          "weight": "regular",
+          "color": "#94a3b8",
+          "start": 0.4
+        }
+      ]
+    },
+    {
+      "narration": "文字の配置は自動です。読み上げの長さに合わせて、シーンの長さも決まります。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "できること",
+          "size": 96
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "自動レイアウト",
+            "読み上げと字幕",
+            "グラフとカウンター"
+          ],
+          "start": 0.5
+        }
+      ]
+    },
+    {
+      "narration": "数字もアニメーションで見せられます。",
+      "elements": [
+        {
+          "type": "counter",
+          "to": 12800,
+          "suffix": " 再生",
+          "size": 150
+        },
+        {
+          "type": "bars",
+          "items": [
+            {
+              "label": "月",
+              "value": 3
+            },
+            {
+              "label": "火",
+              "value": 7
+            },
+            {
+              "label": "水",
+              "value": 12
+            }
+          ],
+          "start": 0.6
+        }
+      ]
+    }
+  ]
+}
