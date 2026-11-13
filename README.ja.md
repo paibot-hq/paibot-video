@@ -90,7 +90,12 @@ paibot-video render video.json -o video.mp4
 
 ## 音
 
-- **`narration`**：読み上げる文章です。macOS では `say` を使い、日本語の文章には日本語の声を自動で選びます。Linux では `espeak-ng` を使います。`PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"` のように書けば、どの読み上げエンジンでもつなげられます。作った音声は `.paibot-video-cache/` に取っておき、使い回します。
+- **`narration`**：読み上げる文章です。動いている読み上げソフトを次の順で使います。
+  1. [AivisSpeech](https://aivis-project.com/)：自然な日本語。無料で手元で動きます（ポート 10101）。
+  2. [VOICEVOX](https://voicevox.hiroshiba.jp/)：無料。キャラクターの声が多くあります（ポート 50021）。
+  3. OS の読み上げ：macOS は `say`、Linux は `espeak-ng`。
+
+  声は `"voice": "まお"` や `"まお/おちつき"` で選びます（名前を間違えると使える声の一覧が返ります）。`speed` と `intonation` で話す速さと抑揚を変えられ、`"tts"` で使うソフトを固定できます。ほかの読み上げソフトも `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"` でつなげます。作った音声は `.paibot-video-cache/` に取っておきます。クレジット表記の要否は声ごとのライセンスに従ってください（VOICEVOX の声は「VOICEVOX:ずんだもん」のような表記が必要です）。
 - **`audio`**：録音済みのファイルをシーンで流します。
 - **`captions: true`**：読み上げを字幕にします。文ごとに区切り、声に合わせて切り替えます。`captionStyle: "karaoke"` にすると、大きな縁取り文字が話している所から色づきます。
 - **`sfx: true`**：切り替えに「シュッ」、登場に「ポン」という効果音を付けます。

@@ -108,8 +108,13 @@ text only), `wipe`, `blur`, `slide-up`, `slide-down`, `slide-left`, `slide-right
 
 ## Sound
 
-- `narration` is spoken with the system voice (`say` on macOS, `espeak-ng` on
-  Linux) or any command in `PAIBOT_VIDEO_TTS`, e.g. `mytts --text-file {text_file} --out {out}`.
-  Set `voice` (e.g. `Kyoko` for Japanese, `Samantha` for English) and `rate`.
+- `narration` is spoken by a text-to-speech engine. With `"tts": "auto"` (default)
+  the first one that is running is used: **AivisSpeech** (natural Japanese, port 10101),
+  **VOICEVOX** (port 50021), then the system voice (`say` on macOS, `espeak-ng` on Linux).
+  `check` prints which engine and voice were used.
+- `voice`: for AivisSpeech/VOICEVOX a name like `"まお"` or name/style like `"まお/おちつき"`;
+  a wrong name returns the list of available voices. For `say`, e.g. `"Kyoko"` or `"Samantha"`.
+- `speed` (1.0 = normal) and `intonation` tune AivisSpeech/VOICEVOX; `rate` tunes `say`.
+- Any other engine: `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"`.
 - `audio` plays a file you already have instead.
 - `"music": {"src": "bgm.mp3", "volume": 0.2}` loops background music and fades it out at the end.

@@ -73,7 +73,7 @@ def _prepare(path: str, *, synth: bool, tts: str | None, scale: float = 1.0):
         return None, issues + [Issue("error", "$", str(e))], None
     issues += lint(Renderer(spec, tl) if scale != 1.0 else r)
     summary = {
-        "size": [spec.width, spec.height], "fps": spec.fps, "duration": round(tl.total, 2),
+        "size": [spec.width, spec.height], "fps": spec.fps, "duration": round(tl.total, 2), "voice": tl.voice,
         "scenes": [{"index": s.index + 1, "start": round(s.start, 2), "duration": round(s.duration, 2),
                     "voice": round(s.audio_len, 2) if s.audio else None} for s in tl.scenes],
     }
@@ -82,7 +82,8 @@ def _prepare(path: str, *, synth: bool, tts: str | None, scale: float = 1.0):
 
 def _summary_text(summary: dict) -> str:
     w, h = summary["size"]
-    lines = [f"  {w}x{h} @ {summary['fps']}fps · {len(summary['scenes'])} scenes · {summary['duration']:.1f}s"]
+    lines = [f"  {w}x{h} @ {summary['fps']}fps · {len(summary['scenes'])} scenes · {summary['duration']:.1f}s"
+             + (f" · voice: {summary['voice']}" if summary.get("voice") else "")]
     for s in summary["scenes"]:
         voice = f" · voice {s['voice']:.1f}s" if s["voice"] else ""
         lines.append(f"    #{s['index']:<2} {s['start']:6.1f}s  +{s['duration']:.1f}s{voice}")

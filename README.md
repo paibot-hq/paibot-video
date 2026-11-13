@@ -90,7 +90,12 @@ Run `paibot-video guide` for the full list of fields.
 
 ## Sound
 
-- **`narration`**: text that is spoken. On macOS it uses `say` (a Japanese voice is picked automatically for Japanese text). On Linux it uses `espeak-ng`. You can plug in any TTS with `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"`. Results are cached in `.paibot-video-cache/`.
+- **`narration`**: text that is spoken. Paibot Video uses the first engine that is running:
+  1. [AivisSpeech](https://aivis-project.com/) — natural Japanese, free, runs locally (port 10101).
+  2. [VOICEVOX](https://voicevox.hiroshiba.jp/) — free, many character voices (port 50021).
+  3. The system voice: `say` on macOS, `espeak-ng` on Linux.
+
+  Pick a voice with `"voice": "まお"` or `"まお/おちつき"` (a wrong name gets you the list of voices), tune it with `speed` and `intonation`, or force an engine with `"tts"`. Any other engine plugs in with `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"`. Results are cached in `.paibot-video-cache/`. Check each voice's license for credit rules (VOICEVOX voices need a credit such as "VOICEVOX:ずんだもん").
 - **`audio`**: a recorded file for the scene instead.
 - **`captions: true`** shows the narration as subtitles, split by sentence and timed to the voice. `captionStyle: "karaoke"` shows big outlined words that light up as they are spoken.
 - **`sfx: true`** adds a whoosh on transitions and a pop when things land.
