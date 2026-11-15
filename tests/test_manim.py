@@ -107,3 +107,15 @@ def test_drawing_cut_off_at_the_edge_is_reported(monkeypatch, tmp_path):
     tl, _ = plan(spec, synth=False, cache_dir=str(tmp_path))
     issues = lint(Renderer(spec, tl))
     assert any(i.path.endswith(".code") and "cut off" in i.message for i in issues)
+
+
+def test_unpremultiply_restores_straight_colour(tmp_path):
+    from PIL import Image
+
+    from paibot_video.manim_scene import unpremultiply
+
+    p = tmp_path / "f.png"
+    Image.new("RGBA", (2, 2), (13, 34, 82, 89)).save(p)
+    unpremultiply(str(p))
+    r, g, b, a = Image.open(p).getpixel((0, 0))
+    assert a == 89 and abs(r - 37) <= 1 and abs(g - 97) <= 2 and abs(b - 235) <= 1

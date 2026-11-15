@@ -107,6 +107,7 @@ paibot-video render video.json --allow-code
 | テーマ | 見た目 |
 | --- | --- |
 | `clean` | 既定。素直で落ち着いた見た目。 |
+| `light` | 白から薄い青の背景に濃い文字、落ち着いた青のアクセント、lofi の BGM、白い字幕の箱。授業や解説向け。 |
 | `neon` | 動く光の玉、光る文字、1 語ずつ出る演出、グリッチの切り替え、カラオケ字幕、粒子、効果音。 |
 | `pop` | 明るい光の玉、縁取りと影の付いた文字、スライドの切り替え、カラオケ字幕、効果音。 |
 | `cinematic` | 暗い画面に粒子と周辺の暗さ、ぼかしから浮かぶ文字、ゆっくり寄るカメラ。 |
@@ -114,6 +115,14 @@ paibot-video render video.json --allow-code
 テーマは既定値を決めるだけです。自分で書いた項目が優先されます。
 
 すべての項目は `paibot-video guide` で見られます。
+
+## 隅のマーク
+
+```json
+"watermark": {"src": "logo.png", "text": "PAIBOT", "position": "top-left", "size": 56, "opacity": 0.75}
+```
+
+小さなロゴや文字を全コマに置きます。セーフエリアの外の余白に置くので中身に重ならず、カメラが動いても動きません。
 
 ## 音
 
@@ -190,7 +199,7 @@ JSON のトップレベルで次のように設定します。
 | `lofi` | 落ち着いた鍵盤と揺れるリズム | 78 BPM |
 | `ambient` | 広がるパッドとベル、ドラムなし | 64 BPM |
 
-`neon` テーマには `synthwave`、`pop` には `pop`、`cinematic` には `ambient` が自動で付きます。`"music": false` で止められます。`clean` テーマには BGM が付きません。
+`neon` テーマには `synthwave`、`pop` には `pop`、`cinematic` には `ambient` が自動で付きます。`"music": false` で止められます。`clean` テーマには BGM が付きません。`light` には `lofi` が付きます。
 
 ```json
 "music": {"generate": "lofi", "seed": 2, "bpm": 85, "volume": 0.3, "duck": 0.6, "fadeOut": 1.5}

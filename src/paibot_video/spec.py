@@ -191,7 +191,7 @@ SCENE = {
 TOP = {
     "$schema": F("str", None),
     "title": F("str", None),
-    "theme": F("choice", "clean", choices=("clean", "neon", "pop", "cinematic"), doc="A ready-made look; any field you set yourself wins"),
+    "theme": F("choice", "clean", choices=("clean", "light", "neon", "pop", "cinematic"), doc="A ready-made look; any field you set yourself wins"),
     "preset": F("choice", "shorts", choices=tuple(PRESETS), doc="shorts 1080x1920, landscape 1920x1080, square, portrait 1080x1350"),
     "width": F("int", None, min=16),
     "height": F("int", None, min=16),
@@ -222,7 +222,18 @@ TOP = {
     "transition": F("choice", "fade", choices=TRANSITIONS, doc="Default scene transition"),
     "transitionDuration": F("num", 0.4, min=0),
     "scenes": F("any", required=True),
+    "watermark": F("any", None, doc='A small mark on every frame: "logo.png", or {"src": "logo.png", "text": "PAIBOT", '
+                                    '"position": "top-left", "size": 56, "opacity": 0.75}'),
     "note": F("str", None),
+}
+
+WATERMARK = {
+    "src": F("path", None, doc="Image file (PNG with transparency works best)"),
+    "text": F("str", None, doc="Short text next to the image, or alone"),
+    "position": F("choice", "top-left", choices=("top-left", "top-right", "bottom-left", "bottom-right")),
+    "size": F("num", 56, min=8, doc="Height of the mark in px"),
+    "opacity": F("num", 0.75, min=0),
+    "color": F("color", None, doc="Text colour (default: spec `color`)"),
 }
 
 
@@ -373,6 +384,11 @@ MUSIC = {
 
 THEMES: dict[str, dict] = {
     "clean": {"top": {}, "el": {}},
+    "light": {
+        "top": {"background": {"gradient": ["#ffffff", "#e8f0f8"], "angle": 160},
+                "accent": "#4f86b6", "color": "#1e293b", "transition": "fade", "music": "lofi"},
+        "el": {"bullets": {"bulletColor": "#4f86b6"}, "code": {"background": "#1e293b"}},
+    },
     "neon": {
         "top": {"background": {"orbs": ["#c026d3", "#0891b2", "#6d28d9", "#e11d48"], "base": "#05010f"},
                 "accent": "#22d3ee", "color": "#ffffff", "transition": "glitch", "captionStyle": "karaoke",
@@ -430,6 +446,15 @@ def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None
     if w % 2 or h % 2:
         issues.append(Issue("error", "$.width", f"{w}x{h}: width and height must be even for MP4 encoding"))
     top["background"] = _check_background(top["background"], "$.background", issues, base_dir)
+
+    wm = top["watermark"]
+    if wm is not None:
+        if isinstance(wm, str):
+            wm = {"src": wm}
+        wm = _check_obj(wm, WATERMARK, "$.watermark", issues, base_dir)
+        if wm["src"] is None and not wm["text"]:
+            issues.append(Issue("error", "$.watermark", "give the mark an image (`src`), a `text`, or both"))
+        top["watermark"] = wm
 
     music = top["music"]
     if music is False:

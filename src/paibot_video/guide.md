@@ -47,6 +47,7 @@ Set `"theme"` and you get a finished look without tuning anything:
 - `pop`: bright orbs, outlined text with shadows, slide cuts, karaoke captions, sound effects.
 - `cinematic`: dark, grainy, vignetted; text fades in from a blur; slow camera push.
 - `clean` (default): plain and quiet.
+- `light`: white to pale blue, dark text, a calm blue accent, lofi music; captions switch to a white box. Good for lessons.
 
 Anything you set yourself overrides the theme. Mark key words with `**double asterisks**`
 in `text` to colour them with the accent ("リスト**内包表記**").
@@ -115,6 +116,13 @@ the video's background, at the element's size and the video's frame rate.
   area or over a text element, and an animation that runs long after the narration.
 - MathTex and Tex need LaTeX installed; Text does not.
 
+## A mark in the corner
+
+`"watermark": {"src": "logo.png", "text": "PAIBOT"}` puts a small mark on every
+frame (`position`: `top-left` default, `top-right`, `bottom-left`, `bottom-right`;
+`size` in px, default 56; `opacity`, default 0.75). It sits in the margin outside the
+safe area, so it stays clear of the content, and does not move with the camera.
+
 ## Motion and finish
 
 - Backgrounds: a colour, `{"gradient": [...], "angle": 160}`, `{"image": "photo.jpg", "dim": 0.4}`,
@@ -163,7 +171,7 @@ the video's background, at the element's size and the video's frame rate.
 - `"music": "lofi"` generates a stereo background track locally, for the video's duration.
   Styles: `synthwave` (100 BPM), `pop` (118), `lofi` (78), `ambient` (64, no drums).
   `neon`, `pop`, `cinematic` themes include `synthwave`, `pop`, `ambient` music respectively.
-  Set `"music": false` to disable a theme's music; `clean` has none by default.
+  Set `"music": false` to disable a theme's music; `clean` has none by default; `light` has `lofi`.
 - Tune it with `"music": {"generate": "lofi", "seed": 2, "bpm": 85, "volume": 0.3, "duck": 0.6}`.
   `seed` is a non-negative integer; `bpm` is 40–300. The same settings give the same track.
 - `"music": {"src": "bgm.mp3", "volume": 0.2}` loops an existing audio file instead.

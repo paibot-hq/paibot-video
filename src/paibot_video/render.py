@@ -751,14 +751,24 @@ class Renderer:
             padx, pady = size * 0.6, size * 0.35
             cap = Image.new("RGBA", (int(tw + 2 * padx), int(lh * len(lines) + 2 * pady)), (0, 0, 0, 0))
             dr = ImageDraw.Draw(cap)
-            dr.rounded_rectangle((0, 0, cap.width - 1, cap.height - 1), radius=int(size * 0.4), fill=(0, 0, 0, 170))
+            light = self._caption_light()
+            box, ink = ((255, 255, 255, 225), parse_color(self.color)) if light else ((0, 0, 0, 170), (255, 255, 255, 255))
+            dr.rounded_rectangle((0, 0, cap.width - 1, cap.height - 1), radius=int(size * 0.4), fill=box,
+                                 outline=(0, 0, 0, 30) if light else None, width=max(1, int(size * 0.04)))
             asc, desc = fnt.getmetrics()
             for i, ln in enumerate(lines):
-                dr.text((cap.width / 2, pady + i * lh + (lh - (asc + desc)) / 2 + asc), ln, font=fnt, fill=(255, 255, 255, 255), anchor="ms")
+                dr.text((cap.width / 2, pady + i * lh + (lh - (asc + desc)) / 2 + asc), ln, font=fnt, fill=ink, anchor="ms")
             self._cap_cache[text] = cap
         portrait = self.H > self.W * 1.2
         bottom = self.H - self.H * (0.14 if portrait else 0.08)
         frame.paste(cap, (int((self.W - cap.width) / 2), int(bottom - cap.height)), cap)
+
+    def _caption_light(self) -> bool:
+        """Light captions (white box, dark text) when the video's background is light."""
+        if getattr(self, "_cap_light", None) is None:
+            bg = self.background(0, 0.0).convert("L")
+            self._cap_light = sum(bg.resize((16, 16)).getdata()) / 256 > 170
+        return self._cap_light
 
     def _karaoke(self, frame: Image.Image, c, u: float) -> None:
         base = min(self.W, self.H)
@@ -848,7 +858,51 @@ class Renderer:
         return img
 
     def frame(self, t: float) -> Image.Image:
-        return self._post(self._mix(t), t)
+        img = self._mix(t)
+        if self.spec.top.get("watermark"):
+            mark = self._watermark()
+            x, y = self._watermark_pos(mark)
+            img.paste(mark, (x, y), mark)
+        return self._post(img, t)
+
+    def _watermark(self) -> Image.Image:
+        """The mark (image and/or text) drawn once and kept: it does not move with the camera."""
+        if getattr(self, "_wm_img", None) is not None:
+            return self._wm_img
+        wm = self.spec.top["watermark"]
+        h = max(4, round(self.px(wm["size"])))
+        parts: list[Image.Image] = []
+        if wm["src"]:
+            src = self._load_image(wm["src"])
+            parts.append(src.resize((max(1, round(src.width * h / src.height)), h), Image.LANCZOS))
+        if wm["text"]:
+            fnt = self.f("bold", wm["size"] * 0.55)
+            tw = fnt.getlength(wm["text"])
+            t_img = Image.new("RGBA", (max(1, int(tw) + 2), h), (0, 0, 0, 0))
+            ImageDraw.Draw(t_img).text((1, h / 2), wm["text"], font=fnt, anchor="lm",
+                                       fill=parse_color(wm["color"] or self.color))
+            parts.append(t_img)
+        gap = round(h * 0.3)
+        out = Image.new("RGBA", (sum(p.width for p in parts) + gap * (len(parts) - 1), h), (0, 0, 0, 0))
+        x = 0
+        for p in parts:
+            out.paste(p, (x, 0), p)
+            x += p.width + gap
+        self._wm_img = _with_alpha(out, wm["opacity"])
+        return self._wm_img
+
+    def _watermark_pos(self, mark: Image.Image) -> tuple[int, int]:
+        """In a corner, in the margin outside the safe area (so it stays clear of the content)."""
+        pos = self.spec.top["watermark"]["position"]
+        left, top, right, bottom = safe_area(self.W, self.H, None)
+        x = left if "left" in pos else right - mark.width
+        portrait = self.H > self.W * 1.2
+        if pos.startswith("top"):
+            y = max(0.0, min((top - mark.height) / 2 + top * 0.15, top - mark.height))
+        else:
+            floor = self.H - self.H * (0.14 if portrait else 0.08)
+            y = floor + (self.H - floor - mark.height) / 2 if not portrait else floor - mark.height - self.px(8)
+        return int(round(x)), int(round(y))
 
     def _mix(self, t: float) -> Image.Image:
         i, u = self.tl.at(t)

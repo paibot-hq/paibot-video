@@ -102,8 +102,8 @@ def pick_scene(code: str, scene: str | None) -> str:
 def preamble(color: str, accent: str, font: str | None) -> str:
     """Prepended to the code: Manim's names plus the video's colours and font.
 
-    Text, MathTex and Tex default to the video's text colour, and Text to its
-    font (so Japanese works without `font=`). The code can use PV_COLOR,
+    Text, MathTex, Tex and the mobjects that are white by default (lines, braces,
+    dots, rectangles) take the video's text colour, and Text its font (so Japanese works without `font=`). The code can use PV_COLOR,
     PV_ACCENT and PV_FONT itself. The frame keeps Manim's height of 8 units and
     takes its width from the element's shape, so a square element is 8 x 8.
     """
@@ -116,6 +116,9 @@ def preamble(color: str, accent: str, font: str | None) -> str:
         "for _cls in (Text, MarkupText, Paragraph):",
         "    _cls.set_default(color=PV_COLOR" + (", font=PV_FONT)" if font else ")"),
         "for _cls in (MathTex, Tex):",
+        "    _cls.set_default(color=PV_COLOR)",
+        "# Mobjects that are white unless told otherwise take the video's text colour instead.",
+        "for _cls in (VMobject, Rectangle, Dot, Brace):",
         "    _cls.set_default(color=PV_COLOR)",
         "del _cls",
     ]
@@ -162,7 +165,7 @@ def render_clip(code: str, scene: str | None, width: int, height: int, fps: int,
     name = pick_scene(code, scene)
     head = preamble(color, accent, font)
     source = head + code
-    key = hashlib.sha256("\0".join([source, name, f"{width}x{height}@{fps}", _version()]).encode()).hexdigest()[:20]
+    key = hashlib.sha256("\0".join([source, name, f"{width}x{height}@{fps}", _version(), "straight-alpha"]).encode()).hexdigest()[:20]
     out = os.path.join(cache_dir, "manim", key)
     done = os.path.join(out, "done")
     if os.path.exists(done):
@@ -202,8 +205,28 @@ def render_clip(code: str, scene: str | None, width: int, height: int, fps: int,
     frames = sorted(glob.glob(os.path.join(out, "f*.png")))
     if not frames:
         raise ManimError("Manim produced no frames", "call self.play(...) or self.wait(...) in construct()")
+    for f in frames:
+        unpremultiply(f)
     open(done, "w").close()
     return Clip(frames, fps, width, height)
+
+
+def unpremultiply(path: str) -> None:
+    """Manim (Cairo) writes colours already multiplied by alpha; PIL expects them straight.
+
+    Left as is, a half-transparent fill turns grey on a light background."""
+    import numpy as np
+    from PIL import Image
+
+    with Image.open(path) as im:
+        a = np.asarray(im.convert("RGBA")).astype(np.float32)
+    alpha = a[..., 3:4]
+    part = (alpha > 0) & (alpha < 255)
+    if not part.any():
+        return
+    rgb = np.where(alpha > 0, a[..., :3] * 255.0 / np.maximum(alpha, 1), 0)
+    a[..., :3] = np.clip(rgb, 0, 255)
+    Image.fromarray(a.round().astype(np.uint8), "RGBA").save(path)
 
 
 def default_size(el_w, el_h, W: int, H: int, lx, ly) -> tuple[int, int]:

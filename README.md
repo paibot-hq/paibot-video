@@ -107,6 +107,7 @@ paibot-video render video.json --allow-code
 | theme | look |
 | --- | --- |
 | `clean` | Default. Plain and quiet. |
+| `light` | White to pale blue with dark text and a calm blue accent, lofi music, white caption boxes. Good for lessons. |
 | `neon` | Drifting colour orbs, glowing text, word-by-word entrances, glitch cuts, karaoke captions, grain, sound effects. |
 | `pop` | Bright orbs, outlined text with shadows, slide cuts, karaoke captions, sound effects. |
 | `cinematic` | Dark and grainy with a vignette, text emerging from a blur, slow camera push. |
@@ -114,6 +115,14 @@ paibot-video render video.json --allow-code
 A theme only fills in defaults; anything you write yourself wins.
 
 Run `paibot-video guide` for the full list of fields.
+
+## A mark in the corner
+
+```json
+"watermark": {"src": "logo.png", "text": "PAIBOT", "position": "top-left", "size": 56, "opacity": 0.75}
+```
+
+A small logo and/or text on every frame, in the margin outside the safe area so it never covers the content, and fixed while the camera moves.
 
 ## Sound
 
@@ -190,7 +199,7 @@ Set `"music": "lofi"` to compose a stereo track for the video's duration. No ext
 | `lofi` | Relaxed keys and swung drums | 78 BPM |
 | `ambient` | Wide pads and bells, no drums | 64 BPM |
 
-The `neon`, `pop` and `cinematic` themes include `synthwave`, `pop` and `ambient` respectively. Set `"music": false` to disable it. The `clean` theme has no music by default.
+The `neon`, `pop` and `cinematic` themes include `synthwave`, `pop` and `ambient` respectively. Set `"music": false` to disable it. The `clean` theme has no music by default; `light` has `lofi`.
 
 ```json
 "music": {"generate": "lofi", "seed": 2, "bpm": 85, "volume": 0.3, "duck": 0.6, "fadeOut": 1.5}
