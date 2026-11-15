@@ -12,7 +12,7 @@ from . import __version__
 from .encode import bar_progress, contact_sheet, render_video
 from .lint import lint
 from .render import Renderer
-from .spec import Issue, json_schema, load
+from .spec import Issue, MUSIC_STYLES, json_schema, load
 from .text import FontNotFound
 from .timeline import ToolMissing, plan
 
@@ -74,6 +74,8 @@ def _prepare(path: str, *, synth: bool, tts: str | None, scale: float = 1.0):
     issues += lint(Renderer(spec, tl) if scale != 1.0 else r)
     summary = {
         "size": [spec.width, spec.height], "fps": spec.fps, "duration": round(tl.total, 2), "voice": tl.voice,
+        "language": tl.language,
+        "music": (spec.top["music"]["generate"] or os.path.basename(spec.top["music"]["src"])) if spec.top["music"] else None,
         "scenes": [{"index": s.index + 1, "start": round(s.start, 2), "duration": round(s.duration, 2),
                     "voice": round(s.audio_len, 2) if s.audio else None} for s in tl.scenes],
     }
@@ -83,7 +85,9 @@ def _prepare(path: str, *, synth: bool, tts: str | None, scale: float = 1.0):
 def _summary_text(summary: dict) -> str:
     w, h = summary["size"]
     lines = [f"  {w}x{h} @ {summary['fps']}fps · {len(summary['scenes'])} scenes · {summary['duration']:.1f}s"
-             + (f" · voice: {summary['voice']}" if summary.get("voice") else "")]
+             + (f" · language: {summary['language']}" if summary.get("language") else "")
+             + (f" · voice: {summary['voice']}" if summary.get("voice") else "")
+             + (f" · music: {summary['music']}" if summary.get("music") else "")]
     for s in summary["scenes"]:
         voice = f" · voice {s['voice']:.1f}s" if s["voice"] else ""
         lines.append(f"    #{s['index']:<2} {s['start']:6.1f}s  +{s['duration']:.1f}s{voice}")
@@ -170,6 +174,23 @@ def cmd_sheet(a) -> int:
     return 0
 
 
+def cmd_music(a) -> int:
+    from .music import STYLES, generate, write_wav
+
+    if a.style is None:
+        for name, st in STYLES.items():
+            print(f"{name:10} {st.bpm:g} bpm  {st.describe}")
+        return 0
+    out = os.path.abspath(a.output or f"{a.style}.wav")
+    try:
+        write_wav(out, generate(a.style, a.length, a.seed, a.bpm))
+    except (ValueError, OSError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(out)
+    return 0
+
+
 def cmd_schema(a) -> int:
     print(json.dumps(json_schema(), ensure_ascii=False, indent=2))
     return 0
@@ -234,6 +255,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--cols", type=int)
     sp.set_defaults(fn=cmd_sheet)
 
+    sp = sub.add_parser("music", help="list the music styles, or write one as a WAV to listen to")
+    sp.add_argument("style", nargs="?", choices=MUSIC_STYLES)
+    sp.add_argument("--length", type=float, default=20.0, help="seconds (default 20)")
+    sp.add_argument("--seed", type=int, default=1)
+    sp.add_argument("--bpm", type=float)
+    sp.add_argument("-o", "--output", metavar="WAV")
+    sp.set_defaults(fn=cmd_music)
+
+    sp = sub.add_parser("setup-kokoro", help="download local English neural voice models (~354 MB; once)")
+    sp.set_defaults(fn=cmd_setup_kokoro)
+
     sp = sub.add_parser("schema", help="print the JSON Schema")
     sp.set_defaults(fn=cmd_schema)
     sp = sub.add_parser("guide", help="print the guide for writing specs (good to give to an AI)")
@@ -243,6 +275,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--force", action="store_true")
     sp.set_defaults(fn=cmd_init)
     return p
+
+
+def cmd_setup_kokoro(a) -> int:
+    from .kokoro import setup
+    from .tts import TTSError
+    try:
+        folder = setup(progress=lambda s: print(s, file=sys.stderr))
+    except (OSError, TTSError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(f"Kokoro models ready: {folder}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

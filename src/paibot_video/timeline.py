@@ -67,6 +67,7 @@ class Timeline:
     scenes: list[SceneTime]
     sfx: list[tuple[float, str]] = field(default_factory=list)  # (time, "whoosh" | "pop")
     voice: str | None = None  # which TTS was used, for the report
+    language: str | None = None
 
     @property
     def total(self) -> float:
@@ -80,10 +81,10 @@ class Timeline:
         return last.index, max(0.0, min(t - last.start, last.duration - 1e-6))
 
 
-_SENT = re.compile(r"[^。！？!?\.\n]+[。！？!?\.]*\s*|\n")
+_SENT = re.compile(r".+?(?:[。！？!?]+|\.(?=\s|$)|\n|$)", re.DOTALL)
 
 
-_CLAUSE = re.compile(r"[^、，,]+[、，,]?\s*")
+_CLAUSE = re.compile(r".+?(?:[、，]|,(?!\d)|$)", re.DOTALL)
 
 
 def _chop(part: str, max_len: int) -> list[str]:
@@ -146,12 +147,13 @@ def plan(spec: Spec, *, tts_command: str | None = None, cache_dir: str | None = 
     top = spec.top
     cache_dir = cache_dir or os.path.join(spec.base_dir or ".", ".paibot-video-cache")
     from .text import is_cjk
+    from .tts import TTSError, choose, narration_language
 
     backend, backend_error = None, None
-    if synth and any(sc["narration"] for sc in spec.scenes):
-        from .tts import TTSError, choose
-
-        cjk = any(sc["narration"] and is_cjk(sc["narration"]) for sc in spec.scenes)
+    has_narration = any(sc["narration"] for sc in spec.scenes)
+    cjk = any(sc["narration"] and is_cjk(sc["narration"]) for sc in spec.scenes)
+    language = narration_language(top, cjk) if has_narration else None
+    if synth and has_narration:
         try:
             backend = choose(top, cjk, tts_command)
         except TTSError as e:
@@ -201,6 +203,7 @@ def plan(spec: Spec, *, tts_command: str | None = None, cache_dir: str | None = 
         t += float(d)
     tl = Timeline(scenes)
     tl.voice = backend.label if backend is not None else None
+    tl.language = language
     if top["sfx"]:
         for st, sc in zip(scenes, spec.scenes):
             trans = sc["transition"] or top["transition"]

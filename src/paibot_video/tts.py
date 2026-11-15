@@ -1,10 +1,12 @@
 """Text-to-speech backends.
 
 - AivisSpeech / VOICEVOX: local engines with the same HTTP API. Natural Japanese.
+- Kokoro: optional local neural English voices, enabled with `"tts": "kokoro"`.
 - A command line (`say` on macOS, `espeak-ng`, or anything in PAIBOT_VIDEO_TTS).
 
-`"tts": "auto"` (the default) uses the first engine that answers, in the order
-AivisSpeech, VOICEVOX, command line. Which one was used is reported by `check`.
+`"tts": "auto"` (the default) uses AivisSpeech, VOICEVOX, then the system voice
+for Japanese. English goes directly to an English system voice. A supplied
+custom command takes precedence. `check` reports the language and voice used.
 """
 
 from __future__ import annotations
@@ -119,8 +121,9 @@ class HttpEngine:
 
 
 class CommandTTS:
-    def __init__(self, command: str, voice: str | None, rate: int | None):
+    def __init__(self, command: str, voice: str | None, rate: int | None, language: str | None = None):
         self.command, self.voice, self.rate = command, voice, rate
+        self.language = language
 
     @property
     def label(self) -> str:
@@ -128,7 +131,7 @@ class CommandTTS:
         return f"{prog}" + (f" · {self.voice}" if self.voice else "")
 
     def synth(self, text: str, cache_dir: str) -> str:
-        key = _key([self.command, self.voice, self.rate, text])
+        key = _key([self.command, self.voice, self.rate, self.language, text])
         out = os.path.join(cache_dir, f"tts-{key}.wav")
         if _cached(out):
             return out
@@ -137,7 +140,8 @@ class CommandTTS:
         with open(text_file, "w", encoding="utf-8") as fh:
             fh.write(text)
         tmp = out + ".part.wav"
-        subs = {"{text}": text, "{text_file}": text_file, "{out}": tmp, "{voice}": self.voice or "", "{rate}": str(self.rate or "")}
+        subs = {"{text}": text, "{text_file}": text_file, "{out}": tmp, "{voice}": self.voice or "",
+                "{rate}": str(self.rate or ""), "{language}": self.language or ""}
         args = []
         for a in shlex.split(self.command):
             for k, v in subs.items():
@@ -163,29 +167,42 @@ def system_command(voice: str | None, rate: int | None) -> str | None:
     return None
 
 
+def narration_language(top: dict, cjk: bool) -> str:
+    language = top.get("language", "auto")
+    return ("ja" if cjk else "en") if language == "auto" else language
+
+
 def choose(top: dict, cjk: bool, tts_command: str | None = None):
     """Pick a backend for the spec. Raises TTSError with a hint when none fits."""
     pref = top["tts"]
     voice, rate = top["voice"], top["rate"]
+    language = narration_language(top, cjk)
     command = tts_command or os.environ.get("PAIBOT_VIDEO_TTS")
     if command and pref in ("auto", "command"):
-        return CommandTTS(command, voice, rate)
+        return CommandTTS(command, voice, rate, language)
+    if pref == "kokoro":
+        from .kokoro import KokoroTTS
+        return KokoroTTS(voice, top["speed"], language)
     if pref in ("aivisspeech", "voicevox"):
         return HttpEngine(pref, voice, top["speed"], top["intonation"])
-    if pref == "auto":
+    if pref == "auto" and language == "ja":
         for name in ENGINES:
             if engine_alive(name) is not None:
                 return HttpEngine(name, voice, top["speed"], top["intonation"])
     if pref == "command":
         raise TTSError('"tts": "command" needs --tts or PAIBOT_VIDEO_TTS')
-    if not voice and cjk and sys.platform == "darwin":
-        voice = "Kyoko"  # the default macOS voice cannot read Japanese
+    if not voice:
+        # Select the voice explicitly; the OS default may speak another language.
+        native_mac = sys.platform == "darwin" and shutil.which("say")
+        voice = ("Kyoko" if language == "ja" else "Samantha") if native_mac else language
     cmd = system_command(voice, rate)
     if not cmd:
-        raise TTSError("no text-to-speech is available",
-                       "start AivisSpeech or VOICEVOX, install espeak-ng, or set PAIBOT_VIDEO_TTS "
-                       "to a command using {text_file} and {out}")
-    return CommandTTS(cmd, voice, rate)
+        hint = ('install an English system voice (macOS say / espeak-ng), or set PAIBOT_VIDEO_TTS '
+                'to a command using {text_file}, {out} and optionally {language}')
+        if language == "ja":
+            hint = "start AivisSpeech or VOICEVOX, install espeak-ng, or set PAIBOT_VIDEO_TTS to a command using {text_file} and {out}"
+        raise TTSError(f"no text-to-speech is available for {language}", hint)
+    return CommandTTS(cmd, voice, rate, language)
 
 
 def _key(parts: list) -> str:

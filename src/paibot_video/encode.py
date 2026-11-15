@@ -39,9 +39,14 @@ def audio_inputs(r: Renderer, tl: Timeline) -> tuple[list[str], str | None]:
         n += 1
     music = r.spec.top["music"]
     if music:
-        args += ["-stream_loop", "-1", "-ss", f"{music['start']:g}", "-i", music["src"]]
         total = tl.total
-        chain = f"[{n}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={music['volume']:g}"
+        if music["generate"]:
+            from .music import track
+
+            args += ["-i", track(music["generate"], total, music["seed"], music["bpm"], cache)]
+        else:
+            args += ["-stream_loop", "-1", "-ss", f"{music['start']:g}", "-i", music["src"]]
+        chain = f"[{n}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},{duck_filter(tl, music['volume'], music['duck'])}"
         if music["fadeIn"] > 0:
             chain += f",afade=t=in:d={music['fadeIn']:g}"
         if music["fadeOut"] > 0:
@@ -56,6 +61,16 @@ def audio_inputs(r: Renderer, tl: Timeline) -> tuple[list[str], str | None]:
     else:
         graph = ";".join(parts) + f";{''.join(labels)}amix=inputs={len(labels)}:normalize=0:dropout_transition=0,apad[aout]"
     return args, graph
+
+
+def duck_filter(tl: Timeline, volume: float, duck: float, ramp: float = 0.35) -> str:
+    """A volume filter that lowers the music while a voice is speaking."""
+    spans = [(s.start + s.audio_start, s.start + s.audio_start + s.audio_len) for s in tl.scenes if s.audio]
+    duck = min(max(duck, 0.0), 1.0)
+    if not spans or duck == 0:
+        return f"volume={volume:g}"
+    terms = "+".join(f"clip(min((t-{a:.3f})/{ramp}+1,({b:.3f}-t)/{ramp}+1),0,1)" for a, b in spans)
+    return f"volume=eval=frame:volume='{volume:g}*(1-{duck:g}*min(1,{terms}))'"
 
 
 def render_video(r: Renderer, out: str, *, fps: int | None = None, crf: int = 20, preset: str = "medium",

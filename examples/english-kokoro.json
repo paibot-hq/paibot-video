@@ -1,0 +1,72 @@
+{
+  "title": "English narration with Paibot Video",
+  "preset": "shorts",
+  "theme": "cinematic",
+  "language": "en",
+  "captions": true,
+  "captionStyle": "karaoke",
+  "music": {
+    "generate": "ambient",
+    "volume": 0.25,
+    "duck": 0.65
+  },
+  "scenes": [
+    {
+      "narration": "Write your script in English. Paibot Video chooses an English voice and adds captions automatically.",
+      "elements": [
+        {
+          "type": "text",
+          "text": "English\n**narration**",
+          "size": 130
+        },
+        {
+          "type": "text",
+          "text": "Your script. Your voice.",
+          "size": 52,
+          "weight": "regular",
+          "start": 0.5
+        }
+      ]
+    },
+    {
+      "narration": "Choose a voice and adjust the speaking rate. The background music gets quieter while the narrator speaks.",
+      "elements": [
+        {
+          "type": "text",
+          "text": "One **JSON** file",
+          "size": 100
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "English voice",
+            "Timed captions",
+            "Background music"
+          ],
+          "size": 54,
+          "start": 0.4,
+          "stagger": 0.5
+        }
+      ]
+    },
+    {
+      "narration": "Render your video, check the preview, and share it when you are ready.",
+      "elements": [
+        {
+          "type": "text",
+          "text": "Ready to **share**",
+          "size": 100
+        },
+        {
+          "type": "code",
+          "code": "\"language\": \"en\"",
+          "size": 54,
+          "start": 0.5
+        }
+      ]
+    }
+  ],
+  "tts": "kokoro",
+  "voice": "af_heart",
+  "speed": 0.95
+}

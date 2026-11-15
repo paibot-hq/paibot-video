@@ -1,0 +1,173 @@
+{
+  "title": "PAIBOT.app 紹介",
+  "preset": "shorts",
+  "language": "ja",
+  "theme": "neon",
+  "captions": true,
+  "music": {
+    "generate": "synthwave",
+    "seed": 2,
+    "volume": 0.28,
+    "duck": 0.65
+  },
+  "scenes": [
+    {
+      "narration": "ブラウザだけで、ここまでできる。PAIBOTドットアップは、毎日の作業から学習まで使える、74個のWebアプリを集めたサイトです。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**PAIBOT**.app",
+          "size": 120
+        },
+        {
+          "type": "counter",
+          "from": 0,
+          "to": 74,
+          "suffix": " 個のWebアプリ",
+          "size": 88,
+          "start": 0.4,
+          "duration": 1.4
+        },
+        {
+          "type": "text",
+          "text": "日本語・英語・中国語に対応",
+          "size": 52,
+          "weight": "regular",
+          "color": "#cbd5e1",
+          "start": 0.9
+        }
+      ]
+    },
+    {
+      "narration": "数学問題集には、小学校から大学まで1300問以上を収録。すべての問題をSymPyで検算し、途中式まで自動で確かめています。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**数学**問題集",
+          "size": 105
+        },
+        {
+          "type": "counter",
+          "from": 0,
+          "to": 1345,
+          "suffix": " 問を検算済み",
+          "size": 76,
+          "start": 0.3,
+          "duration": 1.5
+        },
+        {
+          "type": "code",
+          "code": "# SymPyで答えと途中式を検算\nsimplify(lhs - rhs) == 0",
+          "size": 42,
+          "animate": "type",
+          "start": 0.6
+        }
+      ]
+    },
+    {
+      "narration": "開発や作業のツールも充実。WebAssemblyで動く本物のLinuxターミナルや、サーバーに送らずブラウザ内だけで完結するモザイク加工、文字数カウントが使えます。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**ブラウザ内**で完結",
+          "size": 95
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "本物のLinuxターミナル",
+            "SQL・コード実行",
+            "写真モザイク・Exif削除",
+            "絵文字も正確な文字数"
+          ],
+          "size": 54,
+          "start": 0.4,
+          "stagger": 0.45
+        }
+      ]
+    },
+    {
+      "narration": "情報ページは、公式発表と出典を明記。日本のサイバー被害まとめや、気象庁の地震・気象警報、総務省の行政FAQ検索を提供しています。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**出典つき**の情報",
+          "size": 100
+        },
+        {
+          "type": "counter",
+          "from": 0,
+          "to": 166,
+          "prefix": "サイバー被害 ",
+          "suffix": " 件",
+          "size": 72,
+          "start": 0.3,
+          "duration": 1.3
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "公式発表と報道を1件ずつ確認",
+            "気象庁の地震・気象警報",
+            "総務省の行政FAQを意味検索"
+          ],
+          "size": 50,
+          "start": 0.7,
+          "stagger": 0.45
+        }
+      ]
+    },
+    {
+      "narration": "ゲームや時計、計算、開発、セキュリティまで、17のタグからすぐに見つかります。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "ジャンル別**アプリ**",
+          "size": 92
+        },
+        {
+          "type": "bars",
+          "items": [
+            {
+              "label": "ゲーム",
+              "value": 16
+            },
+            {
+              "label": "開発・AI",
+              "value": 8
+            },
+            {
+              "label": "数学・科学",
+              "value": 8
+            },
+            {
+              "label": "時間・日常",
+              "value": 7
+            }
+          ],
+          "suffix": " 個",
+          "start": 0.4
+        }
+      ]
+    },
+    {
+      "narration": "登録不要ですぐ使える、PAIBOTドットアップ。検索から、試してみてください。",
+      "transition": "flash",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**paibot.app**",
+          "size": 120
+        },
+        {
+          "type": "text",
+          "text": "登録不要・ブラウザですぐ使える",
+          "size": 54,
+          "weight": "regular",
+          "color": "#cbd5e1",
+          "start": 0.4
+        }
+      ]
+    }
+  ]
+}

@@ -90,16 +90,96 @@ Run `paibot-video guide` for the full list of fields.
 
 ## Sound
 
-- **`narration`**: text that is spoken. Paibot Video uses the first engine that is running:
+- **`narration`**: text that is spoken. With `"language": "auto"` (default), narration containing CJK characters selects Japanese; otherwise it selects English. You can set `"language": "ja"` or `"language": "en"` for the whole video. For Japanese, Paibot Video uses the first engine that is running:
   1. [AivisSpeech](https://aivis-project.com/) — natural Japanese, free, runs locally (port 10101).
   2. [VOICEVOX](https://voicevox.hiroshiba.jp/) — free, many character voices (port 50021).
   3. The system voice: `say` on macOS, `espeak-ng` on Linux.
 
   Pick a voice with `"voice": "まお"` or `"まお/おちつき"` (a wrong name gets you the list of voices), tune it with `speed` and `intonation`, or force an engine with `"tts"`. Any other engine plugs in with `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"`. Results are cached in `.paibot-video-cache/`. Check each voice's license for credit rules (VOICEVOX voices need a credit such as "VOICEVOX:ずんだもん").
+
+  **English narration** automatically uses macOS `say` with `Samantha`, or `espeak-ng` with the `en` voice. This works even while a Japanese engine is running. A custom command still takes precedence, and an explicitly selected `tts` engine is respected. `check` reports the language, engine and voice.
 - **`audio`**: a recorded file for the scene instead.
 - **`captions: true`** shows the narration as subtitles, split by sentence and timed to the voice. `captionStyle: "karaoke"` shows big outlined words that light up as they are spoken.
 - **`sfx: true`** adds a whoosh on transitions and a pop when things land.
-- **`music`**: background music, looped, mixed under the voice and faded out at the end.
+- **`music`**: generate a background track locally or loop an audio file. Its volume drops during narration and fades out at the end.
+
+### English narration
+
+Write your narration in English and set `language` if you want to make the choice explicit:
+
+```json
+{
+  "language": "en",
+  "captions": true,
+  "scenes": [
+    {
+      "narration": "Turn a JSON script into a video with English narration.",
+      "elements": [{"type": "text", "text": "English narration", "size": 90}]
+    }
+  ]
+}
+```
+
+On macOS, use `"voice": "Daniel"` for a different installed voice, and `"rate": 165` to set words per minute. Run `say -v '?'` to list the available voices. With `espeak-ng`, voice names such as `en-us` or `en-gb` can be supplied through `voice`. English captions split between words and keep numbers such as `3.14` and `1,200` together.
+
+```sh
+paibot-video check examples/english.json --sheet english-sheet.png
+paibot-video render examples/english.json --preview -o english.mp4
+```
+
+[examples/english.json](examples/english.json) includes narration, captions and generated BGM. Custom TTS commands can use `{language}` to receive the resolved `en` or `ja` value, for example `PAIBOT_VIDEO_TTS="mytts --lang {language} --text-file {text_file} --out {out}"`.
+
+### Local neural English narration
+
+Use [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) for neural English voices. Install the optional dependencies and download the models (~354 MB) once. Speech generation then runs offline, without sending scripts to a service or requiring an API key.
+
+```sh
+uv sync --extra kokoro
+uv run --extra kokoro paibot-video setup-kokoro
+uv run --extra kokoro paibot-video render examples/english-kokoro.json --preview
+```
+
+Set these top-level fields:
+
+```json
+"tts": "kokoro",
+"language": "en",
+"voice": "af_heart",
+"speed": 0.95
+```
+
+Try `af_heart` (American female), `am_michael` (American male), or `bf_emma` (British female). Use `speed` from 0.5 to 2.0 (normal: 1.0); the system voice's `rate` and the Japanese engines' `intonation` do not apply. This integration currently supports English only. Select Kokoro explicitly; `tts: auto` continues to use system English voices.
+
+Models live in `~/.cache/paibot-video/kokoro-v1.0`; override this with `PAIBOT_VIDEO_KOKORO_DIR`. Model files are not included in Git. Upstream licenses: MIT for kokoro-onnx, Apache-2.0 for the model. [examples/english-kokoro.json](examples/english-kokoro.json) uses the same script as the system-voice example for comparison.
+
+### Generate background music
+
+Set `"music": "lofi"` to compose a stereo track for the video's duration. No external API or music file is needed. The same settings and seed produce the same track; generated tracks are cached.
+
+| Style | Sound | Default tempo |
+| --- | --- | --- |
+| `synthwave` | Synth bass, arpeggios and drums | 100 BPM |
+| `pop` | Bright melody and four-on-the-floor drums | 118 BPM |
+| `lofi` | Relaxed keys and swung drums | 78 BPM |
+| `ambient` | Wide pads and bells, no drums | 64 BPM |
+
+The `neon`, `pop` and `cinematic` themes include `synthwave`, `pop` and `ambient` respectively. Set `"music": false` to disable it. The `clean` theme has no music by default.
+
+```json
+"music": {"generate": "lofi", "seed": 2, "bpm": 85, "volume": 0.3, "duck": 0.6, "fadeOut": 1.5}
+```
+
+`seed` is a non-negative integer selecting a variation. `bpm` accepts 40–300. `volume` sets the level; `duck` sets how much it drops during the voice (0 means no reduction, 0.6 leaves 40% of the level, 1 mutes it). The level ramps smoothly before and after each voice segment.
+
+To use your own file, set `{"src": "bgm.mp3", "volume": 0.2}`. Choose either `generate` or `src`. `start` skips seconds at the start of a file; `fadeIn` and `fadeOut` are in seconds.
+
+```sh
+paibot-video music                                  # list styles
+paibot-video music lofi --length 20 --seed 2 -o bgm.wav
+paibot-video render examples/music.json --preview -o music.mp4
+```
+
+[examples/music.json](examples/music.json) combines Japanese narration with generated music.
 
 ## Commands
 
@@ -109,13 +189,14 @@ Run `paibot-video guide` for the full list of fields.
 | `check SPEC [--json] [--sheet PNG] [--no-tts]` | Validate and lint. Exit code 1 if there are errors. |
 | `frame SPEC (--scene N \| --at SEC) [-o PNG]` | One frame. |
 | `sheet SPEC [-o PNG] [--cols N]` | All scenes in one image. |
+| `music [STYLE] [--length SEC] [--seed N] [--bpm N] [-o WAV]` | List styles or write a standalone WAV to listen to. |
 | `schema` / `guide` / `init [PATH]` | JSON Schema, the authoring guide, an example spec. |
 
 Presets: `shorts` 1080×1920 (default), `landscape` 1920×1080, `square` 1080×1080, `portrait` 1080×1350, or any `width`/`height`.
 
 ## Requirements
 
-- Python 3.10+ and Pillow (installed automatically).
+- Python 3.10+, Pillow and NumPy (installed automatically).
 - FFmpeg (`ffmpeg` and `ffprobe` on PATH) for rendering and audio.
 - A font that covers your language. A system Japanese font is found automatically on macOS, Windows and most Linux distributions (Noto Sans CJK). Otherwise set `font` in the spec or `PAIBOT_VIDEO_FONT` / `PAIBOT_VIDEO_FONT_BOLD`.
 

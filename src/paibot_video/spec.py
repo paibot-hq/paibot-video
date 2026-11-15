@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import math
 import os
 import re
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ ANCHORS = ("center", "top", "bottom", "left", "right", "top-left", "top-right", 
 ANIMS_IN = ("fade", "pop", "words", "wipe", "blur", "slide-up", "slide-down", "slide-left", "slide-right", "zoom", "type", "none")
 TRANSITIONS = ("fade", "slide", "wipe", "zoom", "flash", "glitch", "none")
 CAMERAS = ("none", "push", "pull", "drift")
+MUSIC_STYLES = ("synthwave", "pop", "lofi", "ambient")
 
 
 @dataclass
@@ -62,6 +64,7 @@ class F:
     choices: tuple = ()
     doc: str = ""
     min: float | None = None
+    max: float | None = None
 
 
 COMMON = {
@@ -191,10 +194,12 @@ TOP = {
     "font": F("path", None, doc="Regular font file (default: a system CJK font)"),
     "fontBold": F("path", None),
     "fontMono": F("path", None),
-    "tts": F("choice", "auto", choices=("auto", "aivisspeech", "voicevox", "system", "command"),
-             doc="Speech engine. auto: AivisSpeech, then VOICEVOX, then the system voice (say / espeak-ng)"),
-    "voice": F("str", None, doc='Voice. AivisSpeech/VOICEVOX: "まお", "まお/おちつき" or a style id. say: "Kyoko", "Samantha"'),
-    "speed": F("num", 1.0, min=0.5, doc="Speaking speed for AivisSpeech/VOICEVOX (1.0 = normal)"),
+    "tts": F("choice", "auto", choices=("auto", "aivisspeech", "voicevox", "kokoro", "system", "command"),
+             doc="Speech engine. auto: Japanese uses AivisSpeech, VOICEVOX, then the system voice; English uses say / espeak-ng"),
+    "language": F("choice", "auto", choices=("auto", "ja", "en"),
+                  doc="Narration language. auto: Japanese if the narration contains CJK characters, otherwise English. Applies to the whole video."),
+    "voice": F("str", None, doc='Voice. Kokoro: "af_heart" (default), "am_michael", "bf_emma". AivisSpeech/VOICEVOX: "まお", "まお/おちつき" or a style id. say: "Kyoko", "Samantha"'),
+    "speed": F("num", 1.0, min=0.5, doc="Speaking speed for AivisSpeech/VOICEVOX/Kokoro (1.0 = normal; Kokoro maximum 2.0)"),
     "intonation": F("num", 1.0, min=0, doc="Intonation strength for AivisSpeech/VOICEVOX (1.0 = normal)"),
     "rate": F("int", None, min=50, doc="Speaking rate for the system voice (words per minute for `say`)"),
     "captions": F("bool", False, doc="Show the narration as captions"),
@@ -204,7 +209,8 @@ TOP = {
     "grain": F("num", 0, min=0, doc="Film grain strength, 0..1"),
     "vignette": F("num", 0, min=0, doc="Darkened corners, 0..1"),
     "sfx": F("bool", False, doc="Whoosh on transitions and a pop when a scene's first element appears"),
-    "music": F("any", None, doc='{"src": "bgm.mp3", "volume": 0.25, "fadeOut": 1.5}'),
+    "music": F("any", None, doc='Generated: "synthwave" | "pop" | "lofi" | "ambient", or {"generate": "lofi", "seed": 2, "volume": 0.3}. '
+                                 'A file: {"src": "bgm.mp3"}. false turns a theme\'s music off.'),
     "transition": F("choice", "fade", choices=TRANSITIONS, doc="Default scene transition"),
     "transitionDuration": F("num", 0.4, min=0),
     "scenes": F("any", required=True),
@@ -239,10 +245,14 @@ def _check_value(v: Any, f: F, path: str, issues: list[Issue], base_dir: str) ->
     elif k in ("num", "int", "time"):
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             return bad(f"expected a number, got {json.dumps(v)}")
+        if not math.isfinite(v):
+            return bad("must be a finite number")
         if k == "int" and not float(v).is_integer():
             return bad(f"expected a whole number, got {v}")
         if f.min is not None and v < f.min:
             return bad(f"must be at least {f.min:g}, got {v}")
+        if f.max is not None and v > f.max:
+            return bad(f"must be at most {f.max:g}, got {v}")
         if k == "int":
             v = int(v)
     elif k == "bool":
@@ -341,12 +351,24 @@ def _check_background(v: Any, path: str, issues: list[Issue], base_dir: str) -> 
     return {"color": "#000000"}
 
 
+MUSIC = {
+    "generate": F("choice", None, choices=MUSIC_STYLES, doc="Compose a track in this style, exactly as long as the video"),
+    "seed": F("int", 1, min=0, doc="Another seed gives another variation (key, chord order, melody)"),
+    "bpm": F("num", None, min=40, max=300, doc="Tempo in BPM (default depends on the style)"),
+    "src": F("path", None, doc="Use this audio file instead (looped)"),
+    "volume": F("num", 0.3, min=0),
+    "duck": F("num", 0.5, min=0, max=1, doc="How much the music drops while the voice speaks: 0 = not at all, 1 = silent"),
+    "fadeOut": F("num", 1.5, min=0),
+    "fadeIn": F("num", 0.0, min=0),
+    "start": F("num", 0.0, min=0, doc="Skip this many seconds of a `src` file"),
+}
+
 THEMES: dict[str, dict] = {
     "clean": {"top": {}, "el": {}},
     "neon": {
         "top": {"background": {"orbs": ["#c026d3", "#0891b2", "#6d28d9", "#e11d48"], "base": "#05010f"},
                 "accent": "#22d3ee", "color": "#ffffff", "transition": "glitch", "captionStyle": "karaoke",
-                "grain": 0.35, "vignette": 0.6, "sfx": True, "camera": "push"},
+                "grain": 0.35, "vignette": 0.6, "sfx": True, "camera": "push", "music": "synthwave"},
         "el": {"text": {"glow": "#d946ef", "animate": "words"}, "counter": {"glow": "#22d3ee"},
                "bars": {"glow": "#22d3ee"}, "code": {"background": "#0b0820e6", "glow": "#7c3aed"},
                "bullets": {"bulletColor": "#f0abfc"}},
@@ -354,7 +376,7 @@ THEMES: dict[str, dict] = {
     "pop": {
         "top": {"background": {"orbs": ["#f97316", "#facc15", "#ec4899", "#8b5cf6"], "base": "#1e1b4b"},
                 "accent": "#facc15", "color": "#ffffff", "transition": "slide", "captionStyle": "karaoke",
-                "sfx": True, "camera": "drift"},
+                "sfx": True, "camera": "drift", "music": "pop"},
         "el": {"text": {"stroke": 10, "strokeColor": "#111827", "animate": "words", "shadow": True},
                "counter": {"stroke": 10, "strokeColor": "#111827", "shadow": True},
                "bullets": {"shadow": True}, "code": {"shadow": True}, "image": {"shadow": True}},
@@ -362,7 +384,7 @@ THEMES: dict[str, dict] = {
     "cinematic": {
         "top": {"background": {"gradient": ["#0c0a09", "#1c1917", "#0c0a09"], "angle": 180},
                 "accent": "#fbbf24", "color": "#f5f5f4", "transition": "fade", "transitionDuration": 0.8,
-                "grain": 0.6, "vignette": 0.85, "camera": "push"},
+                "grain": 0.6, "vignette": 0.85, "camera": "push", "music": "ambient"},
         "el": {"text": {"animate": "blur", "weight": "regular", "animDuration": 1.1},
                "bullets": {"animate": "slide-up", "animDuration": 0.8}, "image": {"animate": "zoom"},
                "counter": {"weight": "regular"}},
@@ -402,13 +424,19 @@ def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None
     top["background"] = _check_background(top["background"], "$.background", issues, base_dir)
 
     music = top["music"]
-    if music is not None:
+    if music is False:
+        top["music"] = None
+    elif music is not None:
         if isinstance(music, str):
-            music = {"src": music}
-        top["music"] = _check_obj(music, {
-            "src": F("path", required=True), "volume": F("num", 0.25, min=0), "fadeOut": F("num", 1.5, min=0),
-            "fadeIn": F("num", 0.0, min=0), "start": F("num", 0.0, min=0, doc="Skip this many seconds of the file"),
-        }, "$.music", issues, base_dir)
+            music = {"generate": music} if music in MUSIC_STYLES else {"src": music}
+        top["music"] = m = _check_obj(music, MUSIC, "$.music", issues, base_dir)
+        if isinstance(music, dict) and (
+            ("src" in music) == ("generate" in music) or not (m["src"] or m["generate"])
+        ):
+            issues.append(Issue("error", "$.music", "give either `generate` (a style) or `src` (a file)",
+                                "styles: " + ", ".join(MUSIC_STYLES)))
+        if m["src"] and not os.path.isfile(m["src"]):
+            issues.append(Issue("error", "$.music.src", "expected an audio file, not a directory"))
 
     scenes_raw = data.get("scenes")
     scenes: list[dict] = []
@@ -518,6 +546,8 @@ def _schema_for(f: F) -> dict:
         s = {}
     if f.min is not None and k in ("num", "int"):
         s["minimum"] = f.min
+    if f.max is not None and k in ("num", "int"):
+        s["maximum"] = f.max
     if f.default is not None and k != "any":
         s["default"] = f.default
     if f.doc:
@@ -553,9 +583,14 @@ def json_schema() -> dict:
         "background": bg,
         "elements": {"type": "array", "items": {"oneOf": elements}},
     })
-    music = {"oneOf": [{"type": "string"}, {"type": "object", "properties": {
-        "src": {"type": "string"}, "volume": {"type": "number", "default": 0.25}, "fadeOut": {"type": "number", "default": 1.5},
-        "fadeIn": {"type": "number", "default": 0}, "start": {"type": "number", "default": 0}}, "required": ["src"], "additionalProperties": False}]}
+    music_obj = _obj_schema(MUSIC)
+    music_obj["properties"]["src"]["minLength"] = 1
+    music_obj["oneOf"] = [{"required": ["generate"]}, {"required": ["src"]}]
+    music = {"oneOf": [
+        {"type": "string", "minLength": 1,
+         "description": "Generated style (" + ", ".join(MUSIC_STYLES) + ") or an audio file path"},
+        {"const": False}, {"type": "null"}, music_obj,
+    ]}
     top = _obj_schema(TOP, {"background": bg, "music": music, "scenes": {"type": "array", "minItems": 1, "items": scene}})
     top["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     top["title"] = "Paibot Video spec"

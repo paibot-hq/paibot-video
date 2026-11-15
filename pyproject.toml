@@ -11,7 +11,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "sanofc" }]
 requires-python = ">=3.10"
-dependencies = ["Pillow>=10.1"]
+dependencies = ["Pillow>=10.1", "numpy>=1.24"]
 keywords = ["video", "ffmpeg", "text-to-video", "shorts", "ai", "llm", "json"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -27,8 +27,13 @@ paibot-video = "paibot_video.cli:main"
 [project.urls]
 Repository = "https://github.com/paibot-hq/paibot-video"
 
+[project.optional-dependencies]
+kokoro = [
+    "kokoro-onnx>=0.4.9,<0.5",
+]
+
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "jsonschema>=4.18"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,30 @@
+{
+  "title": "BGMも、JSONで",
+  "preset": "shorts",
+  "theme": "neon",
+  "captions": true,
+  "music": {"generate": "synthwave", "seed": 2, "volume": 0.3, "duck": 0.65},
+  "scenes": [
+    {
+      "narration": "音楽も、JSONで。動画に合わせたBGMを、その場で作れます。",
+      "elements": [
+        {"type": "text", "text": "BGMも、\n**JSON**で", "size": 110},
+        {"type": "text", "text": "音楽ファイルの準備は不要", "size": 50, "weight": "regular", "start": 0.5}
+      ]
+    },
+    {
+      "narration": "四つのスタイルから選んで、テンポや曲のバリエーションを変えられます。",
+      "elements": [
+        {"type": "text", "text": "**4つ**のスタイル", "size": 110},
+        {"type": "bullets", "items": ["Synthwave", "Pop", "Lo-fi", "Ambient"], "size": 60, "start": 0.4, "stagger": 0.5}
+      ]
+    },
+    {
+      "narration": "声が流れるときは、音楽を少し小さく。ナレーションを聞きやすくします。",
+      "elements": [
+        {"type": "text", "text": "声を**聞きやすく**", "size": 110},
+        {"type": "text", "text": "ナレーションに合わせて\nBGMの音量を自動調整", "size": 55, "weight": "regular", "start": 0.5}
+      ]
+    }
+  ]
+}

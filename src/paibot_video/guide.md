@@ -19,7 +19,7 @@ renders one scene as a PNG.
 ```json
 {
   "preset": "shorts",
-  "voice": "Kyoko",
+  "language": "ja",
   "captions": true,
   "background": {"gradient": ["#0f172a", "#1e3a8a"], "angle": 160},
   "scenes": [
@@ -108,13 +108,40 @@ text only), `wipe`, `blur`, `slide-up`, `slide-down`, `slide-left`, `slide-right
 
 ## Sound
 
-- `narration` is spoken by a text-to-speech engine. With `"tts": "auto"` (default)
-  the first one that is running is used: **AivisSpeech** (natural Japanese, port 10101),
-  **VOICEVOX** (port 50021), then the system voice (`say` on macOS, `espeak-ng` on Linux).
-  `check` prints which engine and voice were used.
+- `language`: `auto` (default), `ja`, or `en`, for the whole video's narration.
+  Auto selects Japanese if the narration contains CJK characters, English otherwise.
+- `narration` is spoken by a text-to-speech engine. With `"tts": "auto"` (default),
+  Japanese uses the first available engine: **AivisSpeech** (port 10101),
+  **VOICEVOX** (port 50021), then the system voice (`say` / `espeak-ng`).
+  English goes straight to the system's English voice, even if a Japanese engine is running:
+  **Samantha** on macOS, **en** with espeak-ng. An explicit `tts` engine is respected.
+  `check` prints the resolved language, engine and voice.
 - `voice`: for AivisSpeech/VOICEVOX a name like `"まお"` or name/style like `"まお/おちつき"`;
   a wrong name returns the list of available voices. For `say`, e.g. `"Kyoko"` or `"Samantha"`.
-- `speed` (1.0 = normal) and `intonation` tune AivisSpeech/VOICEVOX; `rate` tunes `say`.
-- Any other engine: `PAIBOT_VIDEO_TTS="mytts --text-file {text_file} --out {out}"`.
+- `speed` (1.0 = normal) and `intonation` tune AivisSpeech/VOICEVOX;
+  `rate` sets words per minute for `say` / `espeak-ng` (for example 165).
+- For an English video, write English `narration`, set `"language": "en"`, and enable `captions`.
+  macOS `voice` can be `Samantha` or `Daniel`; list installed voices with `say -v '?'`.
+  With espeak-ng, use voices such as `en-us` or `en-gb`.
+- For local neural English narration, use `"tts": "kokoro", "language": "en", "voice": "af_heart", "speed": 0.95`.
+  First run `uv sync --extra kokoro` and `uv run --extra kokoro paibot-video setup-kokoro` to download ~354 MB of models.
+  Render with `uv run --extra kokoro paibot-video render SPEC`. After setup, speech generation is offline.
+  Voices include `af_heart` (US female), `am_michael` (US male), `bf_emma` (UK female).
+  Kokoro supports English here and uses `speed` (0.5–2.0), not `rate` or `intonation`.
+  `tts: auto` still selects system English voices; explicitly select Kokoro to use it.
+- Any other engine: `PAIBOT_VIDEO_TTS="mytts --lang {language} --text-file {text_file} --out {out}"`.
+  Custom commands take precedence in auto mode; `{language}` is the resolved `en` or `ja`.
 - `audio` plays a file you already have instead.
-- `"music": {"src": "bgm.mp3", "volume": 0.2}` loops background music and fades it out at the end.
+- `"music": "lofi"` generates a stereo background track locally, for the video's duration.
+  Styles: `synthwave` (100 BPM), `pop` (118), `lofi` (78), `ambient` (64, no drums).
+  `neon`, `pop`, `cinematic` themes include `synthwave`, `pop`, `ambient` music respectively.
+  Set `"music": false` to disable a theme's music; `clean` has none by default.
+- Tune it with `"music": {"generate": "lofi", "seed": 2, "bpm": 85, "volume": 0.3, "duck": 0.6}`.
+  `seed` is a non-negative integer; `bpm` is 40–300. The same settings give the same track.
+- `"music": {"src": "bgm.mp3", "volume": 0.2}` loops an existing audio file instead.
+  Use exactly one of `generate` and `src`. `start` skips seconds at the beginning of a file.
+- Music fades out at the end (`fadeOut`, default 1.5 s; `fadeIn`, default 0 s).
+  `duck` smoothly lowers the music during voice segments: 0 = no reduction, 1 = mute,
+  default 0.5 = half volume. This works for both generated music and files.
+- `paibot-video music` lists the styles; `paibot-video music lofi --length 20 -o bgm.wav`
+  writes a standalone track for listening.
