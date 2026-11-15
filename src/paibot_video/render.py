@@ -136,6 +136,7 @@ class Renderer:
     def __init__(self, spec: Spec, timeline: Timeline, scale: float = 1.0) -> None:
         self.spec = spec
         self.tl = timeline
+        self.thumb_own: "Renderer | None" = None  # the thumbnail's own picture, set by the CLI
         self.W = even(spec.width * scale)
         self.H = even(spec.height * scale)
         self.k = self.W / spec.width
