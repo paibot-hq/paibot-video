@@ -162,9 +162,17 @@ ELEMENTS: dict[str, dict[str, F]] = {
         "duration": F("num", 1.0, min=0, doc="Seconds for the bars to grow"),
         "stagger": F("num", 0.12, min=0),
     },
+    "manim": {
+        "code": F("str", doc="Python code of a Manim scene: `class Main(Scene): def construct(self): ...`. "
+                             "`from manim import *` is already done; PV_COLOR, PV_ACCENT and PV_FONT hold the video's colours and font"),
+        "file": F("path", doc="A .py file with the scene, relative to the spec (instead of `code`)"),
+        "scene": F("str", None, doc="Which scene class to show when the code has several"),
+        "width": F("len", None, doc="Default: the full width (and the full height on landscape)"),
+        "height": F("len", None, doc="Default: as tall as it is wide (the full height on landscape)"),
+    },
 }
 
-DEFAULT_ANIM = {"text": "pop", "bullets": "slide-up", "image": "fade", "shape": "fade", "code": "fade", "counter": "fade", "bars": "fade"}
+DEFAULT_ANIM = {"text": "pop", "bullets": "slide-up", "image": "fade", "shape": "fade", "code": "fade", "counter": "fade", "bars": "fade", "manim": "none"}
 
 SCENE = {
     "duration": F("any", None, doc='Seconds, or "auto" (default) to fit the narration; 3 s without narration'),
@@ -486,6 +494,8 @@ def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None
                 el["end"] = None
             if t == "bars":
                 el["items"] = _check_bars(el["items"], f"{ep}.items", issues)
+            if t == "manim":
+                _check_manim(el, ep, issues)
             norm_els.append(el)
         sc["elements"] = norm_els
         sc["_path"] = sp
@@ -494,6 +504,26 @@ def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None
     if any(i.level == "error" for i in issues):
         return None, issues
     return Spec(w, h, top["fps"], base_dir, top, scenes, path, data), issues
+
+
+def _check_manim(el: dict, path: str, issues: list[Issue]) -> None:
+    if (el["code"] is None) == (el["file"] is None):
+        issues.append(Issue("error", path, "give the scene as `code` (a string) or `file` (a .py file), one of the two",
+                            '"code": "class Main(Scene):\\n    def construct(self):\\n        self.play(Write(MathTex(r\'a^2+b^2=c^2\')))"'))
+        return
+    if el["file"] is not None:
+        try:
+            with open(el["file"], encoding="utf-8") as fh:
+                el["code"] = fh.read()
+        except OSError as e:
+            issues.append(Issue("error", f"{path}.file", f"cannot read the file: {e}"))
+            return
+    from .manim_scene import ManimError, pick_scene
+
+    try:
+        el["scene"] = pick_scene(el["code"], el["scene"])
+    except ManimError as e:
+        issues.append(Issue("error", f"{path}.{e.field}", str(e), e.hint))
 
 
 def _check_bars(items: Any, path: str, issues: list[Issue]) -> list[dict]:

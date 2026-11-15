@@ -139,6 +139,40 @@ def split_captions(text: str, start: float, length: float, max_len: int | None =
     return caps
 
 
+def _manim_clips(spec: Spec, cache_dir: str, issues: list[Issue]) -> None:
+    """Render every `manim` element (or reuse the cache) and store the clip on it as `_clip`."""
+    from .manim_scene import ALLOW_ENV, ManimError, allowed, default_size, render_clip
+
+    els = [(sc, el) for sc in spec.scenes for el in sc["elements"] if el["type"] == "manim"]
+    if not els:
+        return
+    W, H = spec.width, spec.height
+    lx = lambda v, total=W: float(v.strip().rstrip("%")) / 100 * total if isinstance(v, str) else float(v)
+    ly = lambda v: lx(v, H)
+    family = None
+    try:
+        from PIL import ImageFont
+
+        from .text import find_font
+
+        family = ImageFont.truetype(find_font("regular", spec.top["font"]), 20).getname()[0]
+    except Exception:
+        pass
+    for sc, el in els:
+        el["_size"] = default_size(el["width"], el["height"], W, H, lx, ly)
+        el["_clip"] = None
+        if not allowed():
+            issues.append(Issue("error", el["_path"], "a manim element runs its Python code, which needs permission",
+                                f"run with --allow-code (or set {ALLOW_ENV}=1) if you trust this spec"))
+            continue
+        try:
+            el["_clip"] = render_clip(el["code"], el["scene"], *el["_size"], spec.fps, color=spec.top["color"],
+                                      accent=spec.top["accent"], font=family, cache_dir=cache_dir)
+        except ManimError as e:
+            field_ = "file" if el["file"] and e.field == "code" else e.field
+            issues.append(Issue("error", f"{el['_path']}.{field_}", str(e), e.hint))
+
+
 def plan(spec: Spec, *, tts_command: str | None = None, cache_dir: str | None = None, synth: bool = True) -> tuple[Timeline, list[Issue]]:
     """Work out every scene's length. With synth=False narration length is estimated."""
     from .text import reading_seconds
@@ -149,6 +183,7 @@ def plan(spec: Spec, *, tts_command: str | None = None, cache_dir: str | None = 
     from .text import is_cjk
     from .tts import TTSError, choose, narration_language
 
+    _manim_clips(spec, cache_dir, issues)
     backend, backend_error = None, None
     has_narration = any(sc["narration"] for sc in spec.scenes)
     cjk = any(sc["narration"] and is_cjk(sc["narration"]) for sc in spec.scenes)
@@ -185,12 +220,24 @@ def plan(spec: Spec, *, tts_command: str | None = None, cache_dir: str | None = 
 
         d = sc["duration"]
         lead = sc["narrationStart"]
+        clips = [(el, el["start"] + el["_clip"].duration) for el in sc["elements"] if el["type"] == "manim" and el.get("_clip")]
+        anim_end = max((end for _, end in clips), default=0.0)
         if d in (None, "auto"):
             d = lead + alen + TAIL if alen else DEFAULT_SCENE
+            if anim_end:
+                d = max(d if alen else 0.0, anim_end + TAIL)
         elif alen and lead + alen > d:
             issues.append(Issue("error", f"{sc['_path']}.duration",
                                 f"the voice is {alen:.1f}s and starts at {lead:g}s, so it would be cut off at {d:g}s",
                                 f'use "duration": "auto" or at least {lead + alen + TAIL:.1f}'))
+        for el, end in clips:
+            if end > d + 0.05:
+                issues.append(Issue("warning", el["_path"], f"the animation ends at {end:.1f}s but the scene ends at {d:g}s, so its end is cut off",
+                                    'use "duration": "auto", or shorten run_time / self.wait in the code'))
+            elif alen and end - (lead + alen) > 2.0:
+                issues.append(Issue("warning", el["_path"],
+                                    f"the animation runs {end - (lead + alen):.1f}s after the narration ends ({end:.1f}s vs {lead + alen:.1f}s)",
+                                    "add narration, or shorten run_time / self.wait in the code"))
         st = SceneTime(i, t, float(d), audio, lead, alen)
         if sc["narration"] and top["captions"]:
             cjk = is_cjk(sc["narration"])

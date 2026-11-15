@@ -78,6 +78,7 @@ they are the centre of the element unless you change `anchor`.
 | `code` | `code` | `size`; `animate: "type"` types it out |
 | `counter` | `to` | `from`, `prefix`, `suffix`, `decimals`, `duration` |
 | `bars` | `items` (`[{"label", "value"}]`) | `suffix`, `max`, `color` |
+| `manim` | `code` or `file` | `scene`, `width`, `height`; see "Manim scenes" |
 
 Every element also takes `start`, `end`, `animate`, `animDuration`, `out: "fade"`,
 `opacity`, `glow` (a colour) and `shadow` (true/false). `text` and `counter` take
@@ -86,6 +87,33 @@ Every element also takes `start`, `end`, `animate`, `animDuration`, `out: "fade"
 Entrance animations: `fade`, `pop`, `words` (word by word / character by character,
 text only), `wipe`, `blur`, `slide-up`, `slide-down`, `slide-left`, `slide-right`,
 `zoom`, `type` (text and code), `none`.
+
+## Manim scenes
+
+For moving maths (an equation being written or rearranged, a curve being drawn,
+a shape transformed, a network lighting up), put a [Manim](https://www.manim.community/)
+scene in a `manim` element. It is rendered with a transparent background over
+the video's background, at the element's size and the video's frame rate.
+
+```json
+{"type": "manim", "height": 700, "code": "class Main(Scene):\n    def construct(self):\n        eq = MathTex(r'(a+b)^2', '=', 'a^2+2ab+b^2')\n        self.play(Write(eq))\n        self.play(eq[0].animate.set_color(PV_ACCENT))\n        self.wait(0.5)"}
+```
+
+- The code is a normal Manim scene; `from manim import *` is already done.
+  `PV_COLOR`, `PV_ACCENT` and `PV_FONT` are the video's text colour, accent and font.
+  Text, MathTex and Tex are already in the video's text colour, and Text in its font,
+  so Japanese works without `font=`. Do not set a background colour.
+- Size: full width and as tall as wide by default (full frame on landscape). The
+  Manim frame is 8 units tall and as wide as the element's shape (a square element
+  is 8 x 8, a 1080x700 one about 12.3 x 8). Keep everything inside it.
+- Timing: the scene lasts until the animation ends (or the narration, whichever is
+  later); after the last `self.play`, the final frame stays. Set `run_time` so the
+  animation follows the narration.
+- The code runs as Python, so `check` and `render` need `--allow-code`.
+- `check` renders the scene (cached) and reports Manim's error with the line in
+  your code, a drawing cut off at the edge of its area, a drawing outside the safe
+  area or over a text element, and an animation that runs long after the narration.
+- MathTex and Tex need LaTeX installed; Text does not.
 
 ## Motion and finish
 

@@ -242,6 +242,9 @@ class Renderer:
             st = self.px(el["stroke"])
             w = max(fnt.getlength(self._fmt_counter(el, v)) for v in (el["from"], el["to"]))
             return w + 2 * st, self.px(el["size"]) * 1.2 + 2 * st, {"font": fnt, "st": st}
+        if t == "manim":
+            w, h = el.get("_size") or (self.W, self.W)
+            return self.px(w), self.px(h), {}
         if t == "bars":
             fnt = self.f("bold", el["size"])
             width = self.lx(el["width"])
@@ -498,6 +501,36 @@ class Renderer:
             img.putalpha(a)
         return img
 
+    def _manim_frame(self, p: Placed, u: float) -> tuple[Image.Image, bool]:
+        """The Manim clip's frame at u seconds into the scene; the last one is held after it ends."""
+        clip = p.spec.get("_clip")
+        size = (max(1, round(p.w)), max(1, round(p.h)))
+        if clip is None:
+            if p.cache is None:
+                img = Image.new("RGBA", size, (0, 0, 0, 0))
+                dr = ImageDraw.Draw(img)
+                lw = max(2, int(self.px(4)))
+                dash = self.px(28)
+                for x0 in range(0, size[0], int(dash * 2)):
+                    dr.line((x0, lw // 2, x0 + dash, lw // 2), fill=(255, 255, 255, 140), width=lw)
+                    dr.line((x0, size[1] - lw // 2 - 1, x0 + dash, size[1] - lw // 2 - 1), fill=(255, 255, 255, 140), width=lw)
+                for y0 in range(0, size[1], int(dash * 2)):
+                    dr.line((lw // 2, y0, lw // 2, y0 + dash), fill=(255, 255, 255, 140), width=lw)
+                    dr.line((size[0] - lw // 2 - 1, y0, size[0] - lw // 2 - 1, y0 + dash), fill=(255, 255, 255, 140), width=lw)
+                fnt = self.f("bold", 56)
+                label = "Manim (not rendered)"
+                dr.text(((size[0] - fnt.getlength(label)) / 2, size[1] / 2 - self.px(34)), label, font=fnt, fill=(255, 255, 255, 170))
+                p.cache = img
+            return p.cache, False
+        n = len(clip.frames)
+        idx = min(n - 1, max(0, int((u - p.spec["start"]) * clip.fps)))
+        if p.cache is not None and idx == n - 1:
+            return p.cache, False
+        img = Image.open(clip.frames[idx]).convert("RGBA")
+        if img.size != size:
+            img = img.resize(size, Image.LANCZOS)
+        return img, idx < n - 1
+
     def _draw_shape(self, p: Placed) -> Image.Image:
         el = p.spec
         img = self._canvas(p)
@@ -642,6 +675,8 @@ class Renderer:
                 img = p.cache
             else:
                 img, dynamic = self._draw_bars(p, u)
+        elif t == "manim":
+            img, dynamic = self._manim_frame(p, u)
         elif anim == "words" and t == "text" and (u - start) < words_duration(len(self._text_units(p))):
             img = self._draw_text(p, words_t=u - start)
             dynamic = True
@@ -880,6 +915,8 @@ class Renderer:
                 done += el["stagger"] * (len(el["items"]) - 1)
             if el["type"] in ("counter", "bars"):
                 done = el["start"] + el["duration"] + (el.get("stagger", 0) * (len(el.get("items") or []) - 1) if el["type"] == "bars" else 0)
+            if el["type"] == "manim" and el.get("_clip"):
+                done = el["start"] + el["_clip"].duration
             if el["animate"] == "type":
                 done = el["start"] + type_duration(el, sum(len(x) for x in p.data["lines"]))
             if el["animate"] == "words" and el["type"] == "text":

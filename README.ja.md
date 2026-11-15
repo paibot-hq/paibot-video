@@ -72,8 +72,35 @@ paibot-video render video.json -o video.mp4
 | `code` | 1 文字ずつ打ち込む演出ができるコード。折り返さず、幅が足りないと縮めて `check` で知らせます。 |
 | `counter` | カウントアップする数字。前後に文字を付けられます。 |
 | `bars` | 伸びながら現れる横棒グラフ。 |
+| `manim` | [Manim](https://www.manim.community/) のシーン。式が書かれて変形する、曲線が描かれる、図形が動く、といった数学の動き。下の説明を参照。 |
 
 どの要素にも `start`、`end`、`animate`（`fade`、`pop`、`words`、`wipe`、`blur`、`slide-up/down/left/right`、`zoom`、`type`、`none`）、`out: "fade"`、`opacity`、`glow`（発光）、`shadow`（影）があり、文字には縁取り（`stroke`）も付けられます。シーンの入り方は `fade`、`slide`、`wipe`、`zoom`、`flash`、`glitch`、`none` から選べ、`camera` で寄る・引く・流れる動きを付けられます。背景は単色・グラデーション・写真（`dim` で暗くできる）・動く光の玉が使えます。`grain`（粒子）と `vignette`（周辺を暗く）でフィルムのような質感になります。
+
+## Manim のシーン
+
+読み上げ・字幕・配置・検査は Paibot Video が受け持ち、数学の動きは得意な [Manim](https://www.manim.community/) に任せます。`manim` 要素にシーンのコードを書きます。
+
+```json
+{
+  "narration": "2乗を展開すると、3つの項になります。",
+  "elements": [
+    {"type": "text", "text": "和の2乗", "size": 90},
+    {"type": "manim", "height": 700, "code": "class Main(Scene):\n    def construct(self):\n        eq = MathTex(r'(a+b)^2', '=', 'a^2+2ab+b^2')\n        self.play(Write(eq))\n        self.play(eq[2].animate.set_color(PV_ACCENT))"}
+  ]
+}
+```
+
+```sh
+pip install 'paibot-video[manim]'      # MathTex・Tex には LaTeX も必要
+paibot-video check video.json --allow-code --sheet sheet.png
+paibot-video render video.json --allow-code
+```
+
+- 要素の大きさ・動画のフレームレートで、背景を透明にして書き出し、テーマの背景に重ねます。コードが変わるまではキャッシュを使います。
+- `from manim import *` は済んでいます。`PV_COLOR`・`PV_ACCENT`・`PV_FONT` に動画の色とフォントが入っています（日本語の Text も `font=` なしで出ます）。
+- シーンの長さは、アニメと読み上げの長いほうに合わせます。アニメが終わったら最後のコマで止まります。
+- `check` は、Manim のエラー（あなたのコードの何行目か）、描く範囲の端で切れた絵、セーフエリアの外や文字に重なる絵、読み上げよりずっと長いアニメを知らせます。
+- コードは Python として実行されるので、`--allow-code` を付けないと動きません。信頼できる台本にだけ使ってください。
 
 ## テーマ
 
@@ -186,7 +213,7 @@ paibot-video render examples/music.json --preview -o music.mp4
 | コマンド | |
 | --- | --- |
 | `render SPEC [-o out.mp4] [--preview] [--scale 0.5] [--fps N] [--force] [--json]` | MP4 を書き出します。`check` でエラーがあると書き出しません（`--force` で強制）。`--preview` は半分の大きさ・15fps です。 |
-| `check SPEC [--json] [--sheet PNG] [--no-tts]` | 検査します。エラーがあれば終了コード 1 です。 |
+| `check SPEC [--json] [--sheet PNG] [--no-tts] [--allow-code]` | 検査します。エラーがあれば終了コード 1 です。 |
 | `frame SPEC (--scene N \| --at 秒) [-o PNG]` | 1 コマを出します。 |
 | `sheet SPEC [-o PNG] [--cols N]` | 全シーンを 1 枚にまとめます。 |
 | `music [STYLE] [--length 秒] [--seed N] [--bpm N] [-o WAV]` | スタイル一覧、または試聴用の BGM を WAV に書き出します。 |
@@ -198,6 +225,7 @@ paibot-video render examples/music.json --preview -o music.mp4
 
 - Python 3.10 以降と Pillow・NumPy（自動で入ります）。
 - FFmpeg（`ffmpeg` と `ffprobe`）。書き出しと音声に使います。
+- 任意：`manim` 要素には Manim（`pip install 'paibot-video[manim]'`）、その MathTex・Tex には LaTeX。
 - 使う言語の文字が入ったフォント。macOS・Windows・主な Linux（Noto Sans CJK）では日本語フォントを自動で見つけます。見つからないときは、台本の `font` か、`PAIBOT_VIDEO_FONT` / `PAIBOT_VIDEO_FONT_BOLD` で指定してください。
 
 ## 開発

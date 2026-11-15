@@ -54,6 +54,46 @@ def _text_items(el: dict) -> str:
     return ""
 
 
+def _lint_manim(r: Renderer, p, issues: list[Issue], safe: tuple, texty: list) -> None:
+    """Check what the Manim scene actually draws: cut off at its edge, outside the safe area, under text."""
+    el, ep, k = p.spec, p.spec["_path"], r.k
+    clip = el["_clip"]
+    info = clip.content()
+    if info["box"] is None:
+        issues.append(Issue("warning", ep, "the Manim scene draws nothing visible",
+                            "add mobjects with self.play(Create(...)) or self.add(...); colours must not be fully transparent"))
+        return
+    if info["cut"]:
+        when, side = info["cut"]
+        issues.append(Issue("warning", f"{ep}.code", f"at {when:.1f}s the drawing reaches the {side} edge of the Manim area, so it is cut off",
+                            f"the area is {config_units(clip)} units; shrink it, e.g. mob.scale_to_fit_width(config.frame_width - 1), "
+                            "or make the element bigger"))
+    sx, sy = p.w / clip.width, p.h / clip.height
+    bx0, by0, bx1, by1 = info["box"]
+    x0, y0, x1, y1 = p.x + bx0 * sx, p.y + by0 * sy, p.x + bx1 * sx, p.y + by1 * sy
+    left, top, right, bottom = safe
+    if x0 < left - 1 or y0 < top - 1 or x1 > right + 1 or y1 > bottom + 1:
+        issues.append(Issue("warning", ep,
+                            "the drawing reaches outside the safe area, where phone apps draw their buttons or captions go"
+                            f" (drawing {x0 / k:.0f},{y0 / k:.0f} – {x1 / k:.0f},{y1 / k:.0f}; safe area {left / k:.0f},{top / k:.0f} – {right / k:.0f},{bottom / k:.0f})",
+                            "scale the mobjects down in the code, or make the element smaller"))
+    dur_end = el["end"] if el["end"] is not None else float("inf")
+    for q in texty:
+        qe = q.spec
+        q_end = qe["end"] if qe["end"] is not None else float("inf")
+        if qe["start"] >= dur_end or el["start"] >= q_end:
+            continue
+        ix = min(x1, q.box[2]) - max(x0, q.box[0])
+        iy = min(y1, q.box[3]) - max(y0, q.box[1])
+        if ix > 2 and iy > 2:
+            issues.append(Issue("warning", ep, f"the drawing overlaps {qe['_path']} by {ix / k:.0f}x{iy / k:.0f}px",
+                                "move the mobjects in the code (e.g. .shift(DOWN)), or give the element its own place"))
+
+
+def config_units(clip) -> str:
+    return f"{8 * clip.width / clip.height:.1f} x 8"
+
+
 def lint(r: Renderer) -> list[Issue]:
     issues: list[Issue] = []
     W, H, k = r.W, r.H, r.k
@@ -96,6 +136,9 @@ def lint(r: Renderer) -> list[Issue]:
                                     "sits outside the safe area, where phone apps draw their buttons or captions go"
                                     f" (safe area {left / k:.0f},{top / k:.0f} – {right / k:.0f},{bottom / k:.0f})",
                                     "move it toward the centre"))
+
+            if t == "manim" and el.get("_clip"):
+                _lint_manim(r, p, issues, (left, top, right, bottom), [q for q in placed if q.spec["type"] in TEXTY])
 
             if t in ("text", "bullets", "code", "bars") and el["size"] < min_size:
                 issues.append(Issue("warning", f"{ep}.size", f"{el['size']:g}px text is hard to read on a phone",

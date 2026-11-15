@@ -72,8 +72,35 @@ A typical agent loop is *write JSON → `check --json --sheet` → fix → repea
 | `code` | A code block that can be typed out. Lines are never wrapped; a wide block is shrunk and `check` tells you. |
 | `counter` | A number counting up, with prefix and suffix. |
 | `bars` | A horizontal bar chart whose bars grow in. |
+| `manim` | A [Manim](https://www.manim.community/) scene for moving maths: equations written and rearranged, curves drawn, shapes transformed. See below. |
 
 Every element has `start`, `end`, `animate` (`fade`, `pop`, `words`, `wipe`, `blur`, `slide-up/down/left/right`, `zoom`, `type`, `none`), `out: "fade"`, `opacity`, `glow` and `shadow`; text can have an outline (`stroke`). Scenes enter with `fade`, `slide`, `wipe`, `zoom`, `flash`, `glitch` or `none`, and the `camera` can push in, pull out or drift. Backgrounds can be a colour, a gradient, a photo (with `dim`) or moving colour orbs. `grain` and `vignette` give a film look.
+
+## Manim scenes
+
+Paibot Video does the narration, captions, layout and checks; [Manim](https://www.manim.community/) does what it is best at, moving maths. Put a scene's code in a `manim` element:
+
+```json
+{
+  "narration": "Expanding the square gives three terms.",
+  "elements": [
+    {"type": "text", "text": "Square of a sum", "size": 90},
+    {"type": "manim", "height": 700, "code": "class Main(Scene):\n    def construct(self):\n        eq = MathTex(r'(a+b)^2', '=', 'a^2+2ab+b^2')\n        self.play(Write(eq))\n        self.play(eq[2].animate.set_color(PV_ACCENT))"}
+  ]
+}
+```
+
+```sh
+pip install 'paibot-video[manim]'      # MathTex/Tex also need LaTeX
+paibot-video check video.json --allow-code --sheet sheet.png
+paibot-video render video.json --allow-code
+```
+
+- The scene is rendered with a transparent background over the theme, at the element's size and the video's frame rate, and cached until the code changes.
+- `from manim import *` is done for you, and `PV_COLOR`, `PV_ACCENT` and `PV_FONT` carry the video's colours and font (Japanese text works without `font=`).
+- The scene lasts as long as the animation or the narration, whichever is longer; the last frame is held.
+- `check` reports Manim's errors with the line in your code, a drawing cut off at the edge of its area, outside the safe area or over text, and an animation that runs long after the narration.
+- The code is run as Python, so nothing runs without `--allow-code`. Use it only for specs you trust.
 
 ## Themes
 
@@ -186,7 +213,7 @@ paibot-video render examples/music.json --preview -o music.mp4
 | command | |
 | --- | --- |
 | `render SPEC [-o out.mp4] [--preview] [--scale 0.5] [--fps N] [--force] [--json]` | Write the MP4. Refuses if `check` finds errors unless `--force`. `--preview` is half size at 15 fps. |
-| `check SPEC [--json] [--sheet PNG] [--no-tts]` | Validate and lint. Exit code 1 if there are errors. |
+| `check SPEC [--json] [--sheet PNG] [--no-tts] [--allow-code]` | Validate and lint. Exit code 1 if there are errors. |
 | `frame SPEC (--scene N \| --at SEC) [-o PNG]` | One frame. |
 | `sheet SPEC [-o PNG] [--cols N]` | All scenes in one image. |
 | `music [STYLE] [--length SEC] [--seed N] [--bpm N] [-o WAV]` | List styles or write a standalone WAV to listen to. |
@@ -198,6 +225,7 @@ Presets: `shorts` 1080×1920 (default), `landscape` 1920×1080, `square` 1080×1
 
 - Python 3.10+, Pillow and NumPy (installed automatically).
 - FFmpeg (`ffmpeg` and `ffprobe` on PATH) for rendering and audio.
+- Optional: Manim (`pip install 'paibot-video[manim]'`) for `manim` elements, and LaTeX for its MathTex/Tex.
 - A font that covers your language. A system Japanese font is found automatically on macOS, Windows and most Linux distributions (Noto Sans CJK). Otherwise set `font` in the spec or `PAIBOT_VIDEO_FONT` / `PAIBOT_VIDEO_FONT_BOLD`.
 
 ## Development

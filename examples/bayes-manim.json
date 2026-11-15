@@ -1,0 +1,127 @@
+{
+  "title": "陽性でも病気とは限らない（ベイズの定理）",
+  "preset": "shorts",
+  "theme": "neon",
+  "grain": 0,
+  "captions": true,
+  "voice": "まお",
+  "scenes": [
+    {
+      "narration": "病気の人の99パーセントを見つけられる検査で、陽性と出ました。本当に病気である確率は、何パーセントでしょう？",
+      "elements": [
+        {
+          "type": "text",
+          "text": "検査で**陽性**",
+          "size": 130
+        },
+        {
+          "type": "text",
+          "text": "本当に病気の確率は？",
+          "size": 70,
+          "weight": "regular",
+          "start": 0.8
+        }
+      ]
+    },
+    {
+      "narration": "条件はこうです。病気の人は100人に1人。病気の人の99パーセントが陽性になります。ただし、病気でない人も5パーセントは陽性と出てしまいます。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "条件",
+          "size": 100
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "病気の人は 1%",
+            "病気なら 99% 陽性",
+            "病気でなくても 5% 陽性"
+          ],
+          "size": 72,
+          "stagger": 1.6,
+          "start": 1.2
+        }
+      ]
+    },
+    {
+      "narration": "直感では99パーセントに思えます。でも答えは、約17パーセントです。",
+      "transition": "glitch",
+      "elements": [
+        {
+          "type": "text",
+          "text": "99%…？",
+          "size": 110,
+          "color": "#94a3b8"
+        },
+        {
+          "type": "counter",
+          "from": 0,
+          "to": 17,
+          "prefix": "約",
+          "suffix": "%",
+          "size": 220,
+          "start": 2.2
+        }
+      ]
+    },
+    {
+      "narration": "100人で考えてみましょう。病気の人は1人。この人は、ほぼ確実に陽性になります。でも、病気でない99人のうち、5パーセント、およそ5人も陽性になってしまいます。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "100人で考える",
+          "size": 90
+        },
+        {
+          "type": "manim",
+          "file": "bayes_scenes.py",
+          "scene": "People",
+          "height": 1000
+        }
+      ]
+    },
+    {
+      "narration": "陽性の人は、合わせて6人。そのうち本当に病気なのは、1人だけ。だから、およそ17パーセントなんです。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "陽性の中の病気の人",
+          "size": 80
+        },
+        {
+          "type": "manim",
+          "file": "bayes_scenes.py",
+          "scene": "Result",
+          "height": 1000
+        }
+      ]
+    },
+    {
+      "narration": "これがベイズの定理です。左が、陽性と分かったあとの確率、事後確率。右の P(A) が、もとの割合、事前確率です。事前確率が小さいと、事後確率も小さくなるんです。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "**ベイズの定理**",
+          "size": 100
+        },
+        {
+          "type": "manim",
+          "file": "bayes_scenes.py",
+          "scene": "Formula",
+          "height": 900
+        }
+      ]
+    },
+    {
+      "narration": "陽性という結果だけで決めつけず、もとの割合を忘れないようにしましょう。",
+      "elements": [
+        {
+          "type": "text",
+          "text": "事前確率を忘れない",
+          "size": 100
+        }
+      ]
+    }
+  ]
+}

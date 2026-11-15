@@ -223,6 +223,11 @@ def build_parser() -> argparse.ArgumentParser:
         if tts:
             sp.add_argument("--tts", metavar="CMD", help="text-to-speech command with {text_file} and {out} (default: say / espeak-ng)")
             sp.add_argument("--no-tts", action="store_true", help="estimate narration length instead of generating speech")
+        allow_code(sp)
+
+    def allow_code(sp):
+        sp.add_argument("--allow-code", action="store_true",
+                        help="run the Python code of `manim` elements (only for specs you trust)")
 
     sp = sub.add_parser("check", help="find problems; exit 1 if there are errors")
     common(sp)
@@ -240,6 +245,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--force", action="store_true", help="render even if check finds errors")
     sp.add_argument("--json", action="store_true")
     sp.add_argument("-q", "--quiet", action="store_true")
+    allow_code(sp)
     sp.set_defaults(fn=cmd_render)
 
     sp = sub.add_parser("frame", help="save one frame as PNG")
@@ -291,6 +297,10 @@ def cmd_setup_kokoro(a) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
+    if getattr(a, "allow_code", False):
+        from .manim_scene import ALLOW_ENV
+
+        os.environ[ALLOW_ENV] = "1"
     try:
         return a.fn(a)
     except KeyboardInterrupt:

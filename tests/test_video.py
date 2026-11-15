@@ -66,7 +66,7 @@ def test_defaults_and_presets():
 def test_schema_is_json_and_covers_elements():
     s = json.loads(json.dumps(json_schema()))
     els = s["properties"]["scenes"]["items"]["properties"]["elements"]["items"]["oneOf"]
-    assert {e["title"] for e in els} == {"text", "bullets", "image", "shape", "code", "counter", "bars"}
+    assert {e["title"] for e in els} == {"text", "bullets", "image", "shape", "code", "counter", "bars", "manim"}
 
 
 def test_example_spec_is_valid():
