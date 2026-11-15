@@ -46,3 +46,14 @@ def test_watermark_is_drawn_in_its_corner_outside_the_safe_area(tmp_path):
     right = build({"width": 540, "height": 960, "watermark": {"text": "PAIBOT", "position": "top-right"}, "scenes": scenes()})
     m2 = right._watermark()
     assert right._watermark_pos(m2)[0] + m2.width <= 540
+
+
+def test_scene_can_hide_the_watermark(tmp_path):
+    r = build({"width": 540, "height": 960, "background": "#000000",
+               "watermark": {"text": "PAIBOT", "opacity": 1, "color": "#ff0000"},
+               "scenes": [{"duration": 1, "elements": []}, {"duration": 1, "watermark": False, "elements": []}]})
+    mark = r._watermark()
+    x, y = r._watermark_pos(mark)
+    box = (x, y, x + mark.width, y + mark.height)
+    red = lambda img: max(p[0] for p in img.crop(box).getdata())
+    assert red(r.frame(0.5)) > 150 and red(r.frame(1.9)) < 30

@@ -121,7 +121,7 @@ the video's background, at the element's size and the video's frame rate.
 `"watermark": {"src": "logo.png", "text": "PAIBOT"}` puts a small mark on every
 frame (`position`: `top-left` default, `top-right`, `bottom-left`, `bottom-right`;
 `size` in px, default 56; `opacity`, default 0.75). It sits in the margin outside the
-safe area, so it stays clear of the content, and does not move with the camera.
+safe area, so it stays clear of the content, and does not move with the camera. `"watermark": false` on a scene hides it there, e.g. on an end card that shows the logo large.
 
 ## Motion and finish
 

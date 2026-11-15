@@ -185,6 +185,7 @@ SCENE = {
     "gap": F("num", 48, min=0, doc="Space between stacked elements in px"),
     "valign": F("choice", "center", choices=("top", "center", "bottom"), doc="Where the stack sits"),
     "camera": F("choice", None, choices=CAMERAS, doc="Slow camera move during the scene (default: spec `camera`)"),
+    "watermark": F("bool", True, doc="false hides the video's watermark in this scene (e.g. an end card with the logo)"),
     "note": F("str", None, doc="Free text, ignored by the renderer"),
 }
 

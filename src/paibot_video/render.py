@@ -859,7 +859,7 @@ class Renderer:
 
     def frame(self, t: float) -> Image.Image:
         img = self._mix(t)
-        if self.spec.top.get("watermark"):
+        if self.spec.top.get("watermark") and self.spec.scenes[self.tl.at(t)[0]]["watermark"]:
             mark = self._watermark()
             x, y = self._watermark_pos(mark)
             img.paste(mark, (x, y), mark)
