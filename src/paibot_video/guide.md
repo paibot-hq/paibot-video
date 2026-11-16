@@ -9,7 +9,7 @@ is written so that a language model can follow it without other context.
 2. `paibot-video check video.json --sheet sheet.png` lists every problem with a
    JSON path and a hint, and saves a picture of all scenes. Look at the picture.
 3. Fix the issues until `check` reports no errors (warnings are worth fixing too).
-4. `paibot-video render video.json -o video.mp4`.
+4. `paibot-video render video.json -o video.mp4` (also writes `video.thumb.png`).
 
 `paibot-video schema` prints the full JSON Schema. `paibot-video frame video.json --scene 3`
 renders one scene as a PNG.
@@ -122,6 +122,17 @@ the video's background, at the element's size and the video's frame rate.
 frame (`position`: `top-left` default, `top-right`, `bottom-left`, `bottom-right`;
 `size` in px, default 56; `opacity`, default 0.75). It sits in the margin outside the
 safe area, so it stays clear of the content, and does not move with the camera. `"watermark": false` on a scene hides it there, e.g. on an end card that shows the logo large.
+
+## Thumbnail
+
+`render` also writes `<video>.thumb.png`. Default: scene 1 when it has settled.
+`"thumbnail": {"scene": 3, "at": 2.5}` picks a moment. `"thumbnail": {"elements": [...]}`
+lays out a cover of its own exactly like a scene's elements (same background,
+watermark and fonts; a Manim element shows its last frame) and `check` checks it
+like a scene (paths start with `$.thumbnail`). Put the question or promise of the
+video in big text and one picture under it. `"intro": 0.5` also shows the cover for
+0.5 s at the start of the video, so a frame can be chosen as the cover on YouTube
+Shorts. `paibot-video thumbnail video.json` writes only the picture. `false` turns it off.
 
 ## Motion and finish
 

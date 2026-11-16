@@ -9,6 +9,7 @@ import sys
 from importlib import resources
 
 from . import __version__
+from . import thumbnail as thumb
 from .encode import bar_progress, contact_sheet, render_video
 from .lint import lint
 from .render import Renderer
@@ -69,9 +70,14 @@ def _prepare(path: str, *, synth: bool, tts: str | None, scale: float = 1.0):
         tl, tissues = plan(spec, tts_command=tts, synth=synth)
         issues += tissues
         r = Renderer(spec, tl, scale=scale)
+        r.thumb_own, tissues = thumb.prepare(r, scale=scale)
+        issues += tissues
     except (FontNotFound, ToolMissing) as e:
         return None, issues + [Issue("error", "$", str(e))], None
     issues += lint(Renderer(spec, tl) if scale != 1.0 else r)
+    if r.thumb_own is not None:
+        own = r.thumb_own
+        issues += [i for i in lint(Renderer(own.spec, own.tl) if scale != 1.0 else own) if not _still_irrelevant(i)]
     summary = {
         "size": [spec.width, spec.height], "fps": spec.fps, "duration": round(tl.total, 2), "voice": tl.voice,
         "language": tl.language,
@@ -80,6 +86,11 @@ def _prepare(path: str, *, synth: bool, tts: str | None, scale: float = 1.0):
                     "voice": round(s.audio_len, 2) if s.audio else None} for s in tl.scenes],
     }
     return r, issues, summary
+
+
+def _still_irrelevant(i: Issue) -> bool:
+    """Checks about timing mean nothing for a still picture."""
+    return any(w in i.message for w in ("seconds to read", "shown for", "too briefly", "after the narration"))
 
 
 def _summary_text(summary: dict) -> str:
@@ -131,16 +142,26 @@ def cmd_render(a) -> int:
     fps = a.fps or (min(r.spec.fps, 15) if a.preview else None)
     if not a.json:
         print(_summary_text(summary), file=sys.stderr)
+    cover = thumb.image(r, r.thumb_own)
+    th = r.spec.thumbnail
     try:
         render_video(r, out, fps=fps, preset="veryfast" if a.preview else "medium",
-                     progress=None if (a.json or a.quiet) else bar_progress())
+                     progress=None if (a.json or a.quiet) else bar_progress(),
+                     intro=cover, intro_len=th["intro"] if th else 0.0)
     except (RuntimeError, ToolMissing) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    cover_path = None
+    if cover is not None:
+        cover_path = thumb.default_path(out)
+        cover.save(cover_path)
     if a.json:
-        print(json.dumps({"ok": True, "output": out, "summary": summary, "issues": [i.as_dict() for i in issues]}, ensure_ascii=False, indent=2))
+        print(json.dumps({"ok": True, "output": out, "thumbnail": cover_path, "summary": summary,
+                          "issues": [i.as_dict() for i in issues]}, ensure_ascii=False, indent=2))
     else:
         print(f"  ✓ {os.path.relpath(out)}", file=sys.stderr)
+        if cover_path:
+            print(f"  ✓ {os.path.relpath(cover_path)}", file=sys.stderr)
     return 0
 
 
@@ -159,6 +180,22 @@ def cmd_frame(a) -> int:
         t = a.at if a.at is not None else 0.0
     out = os.path.abspath(a.output or "frame.png")
     r.frame(min(t, r.tl.total - 1e-3)).save(out)
+    print(out)
+    return 0
+
+
+def cmd_thumbnail(a) -> int:
+    r, issues, _ = _prepare(a.spec, synth=not a.no_tts, tts=a.tts)
+    if r is None:
+        _print_issues(issues)
+        return 1
+    _print_issues([i for i in issues if i.path.startswith("$.thumbnail")])
+    cover = thumb.image(r, r.thumb_own)
+    if cover is None:
+        print('error: the spec has "thumbnail": false', file=sys.stderr)
+        return 1
+    out = os.path.abspath(a.output or thumb.default_path(a.spec))
+    cover.save(out)
     print(out)
     return 0
 
@@ -254,6 +291,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--at", type=float, help="time in seconds")
     sp.add_argument("-o", "--output", metavar="PNG")
     sp.set_defaults(fn=cmd_frame)
+
+    sp = sub.add_parser("thumbnail", help="save the cover picture as PNG (render also writes it next to the MP4)")
+    common(sp)
+    sp.add_argument("-o", "--output", metavar="PNG", help="default: <spec>.thumb.png")
+    sp.set_defaults(fn=cmd_thumbnail)
 
     sp = sub.add_parser("sheet", help="save a picture of every scene")
     common(sp)

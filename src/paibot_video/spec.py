@@ -225,7 +225,22 @@ TOP = {
     "scenes": F("any", required=True),
     "watermark": F("any", None, doc='A small mark on every frame: "logo.png", or {"src": "logo.png", "text": "PAIBOT", '
                                     '"position": "top-left", "size": 56, "opacity": 0.75}'),
+    "thumbnail": F("any", None, doc='The cover picture written next to the MP4. Default: scene 1 when it has settled. '
+                                    '{"scene": 3, "at": 2.5} picks a moment; {"elements": [...]} lays out its own picture like a scene; '
+                                    '"intro": 0.5 also shows it for that many seconds at the start of the video; false turns it off.'),
     "note": F("str", None),
+}
+
+THUMBNAIL = {
+    "scene": F("int", None, min=1, doc="Use this scene (1-based) as the picture"),
+    "at": F("num", None, min=0, doc="Seconds into that scene (default: when its entrances are done)"),
+    "elements": F("any", None, doc="Lay out a picture of its own, like a scene's elements"),
+    "background": F("any", None, doc="Background for `elements` (default: the video's)"),
+    "gap": F("num", 48, min=0, doc="Space between stacked elements in px"),
+    "valign": F("choice", "center", choices=("top", "center", "bottom")),
+    "watermark": F("bool", True, doc="false hides the video's watermark on the picture"),
+    "intro": F("num", 0, min=0, doc="Also show the picture for this many seconds at the start of the video "
+                                     "(for apps that only let you pick a frame as the cover)"),
 }
 
 WATERMARK = {
@@ -427,6 +442,8 @@ class Spec:
     scenes: list[dict]
     path: str = ""
     raw: dict = field(default_factory=dict)
+    # {"scene": int | None (0-based), "at": float | None, "intro": float, "spec": Spec | None}; None = no picture
+    thumbnail: dict | None = None
 
 
 def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None, list[Issue]]:
@@ -488,48 +505,90 @@ def validate(data: Any, base_dir: str = "", path: str = "") -> tuple[Spec | None
         if sc["narration"] is not None and sc["audio"] is not None:
             issues.append(Issue("error", sp, "use either `narration` (text to speech) or `audio` (a file), not both"))
         sc["background"] = _check_background(sc["background"], f"{sp}.background", issues, base_dir)
-        els = sc["elements"]
-        if not isinstance(els, list):
-            issues.append(Issue("error", f"{sp}.elements", "expected a list"))
-            els = []
-        norm_els = []
-        for j, e in enumerate(els):
-            ep = f"{sp}.elements[{j}]"
-            t = e.get("type") if isinstance(e, dict) else None
-            if t not in ELEMENTS:
-                if isinstance(e, dict) and t is None:
-                    issues.append(Issue("error", f"{ep}.type", "required field is missing", "one of: " + ", ".join(ELEMENTS)))
-                elif isinstance(e, dict):
-                    issues.append(Issue("error", f"{ep}.type", f"unknown element type {json.dumps(t)}", _suggest(str(t), ELEMENTS)))
-                else:
-                    issues.append(Issue("error", ep, "expected an object"))
-                continue
-            fields = {**COMMON, **ELEMENTS[t]}
-            themed = {k: v for k, v in theme["el"].get(t, {}).items() if k in fields}
-            el = _check_obj({**themed, **e}, fields, ep, issues, base_dir)
-            el["_path"] = ep
-            if el["animate"] is None:
-                el["animate"] = DEFAULT_ANIM[t]
-            if el["animate"] == "words" and t not in ("text", "bullets"):
-                el["animate"] = "pop"
-            if el["animate"] == "type" and t not in ("text", "code"):
-                issues.append(Issue("error", f"{ep}.animate", '"type" only works on text and code'))
-                el["animate"] = "fade"
-            if el["end"] is not None and el["end"] <= el["start"]:
-                issues.append(Issue("error", f"{ep}.end", f"end ({el['end']}) must be after start ({el['start']})"))
-                el["end"] = None
-            if t == "bars":
-                el["items"] = _check_bars(el["items"], f"{ep}.items", issues)
-            if t == "manim":
-                _check_manim(el, ep, issues)
-            norm_els.append(el)
-        sc["elements"] = norm_els
+        sc["elements"] = _check_elements(sc["elements"], sp, issues, base_dir, theme)
         sc["_path"] = sp
         scenes.append(sc)
 
+    thumb = _check_thumbnail(top, scenes, w, h, base_dir, path, data, theme, issues)
     if any(i.level == "error" for i in issues):
         return None, issues
-    return Spec(w, h, top["fps"], base_dir, top, scenes, path, data), issues
+    return Spec(w, h, top["fps"], base_dir, top, scenes, path, data, thumb), issues
+
+
+def _check_thumbnail(top: dict, scenes: list[dict], w: int, h: int, base_dir: str, path: str, data: dict,
+                     theme: dict, issues: list[Issue]) -> dict | None:
+    v = top["thumbnail"]
+    if v is False:
+        return None
+    if v is None or v is True:
+        return {"scene": 0, "at": None, "intro": 0.0, "spec": None}
+    tp = "$.thumbnail"
+    if not isinstance(v, dict):
+        issues.append(Issue("error", tp, "expected true, false or an object", '{"scene": 1} or {"elements": [...]}'))
+        return None
+    t = _check_obj(v, THUMBNAIL, tp, issues, base_dir)
+    out = {"scene": 0, "at": t["at"], "intro": t["intro"], "spec": None}
+    if t["elements"] is not None:
+        if t["scene"] is not None or t["at"] is not None:
+            issues.append(Issue("error", tp, "use either `scene`/`at` (a moment of the video) or `elements` (a picture of its own), not both"))
+        sc = _check_obj({"elements": t["elements"], "background": t["background"], "gap": t["gap"], "valign": t["valign"],
+                         "watermark": t["watermark"], "transition": "none", "camera": "none"}, SCENE, tp, issues, base_dir)
+        sc["background"] = _check_background(sc["background"], f"{tp}.background", issues, base_dir)
+        sc["elements"] = _check_elements(sc["elements"], tp, issues, base_dir, theme)
+        if not sc["elements"]:
+            issues.append(Issue("error", f"{tp}.elements", "expected at least one element"))
+        sc["_path"] = tp
+        ttop = {**top, "captions": False, "music": None, "sfx": False, "camera": "none", "transition": "none"}
+        out["spec"] = Spec(w, h, top["fps"], base_dir, ttop, [sc], path, data)
+        out["scene"] = None
+        return out
+    for k in ("background",):
+        if t[k] is not None:
+            issues.append(Issue("warning", f"{tp}.{k}", "only used together with `elements`"))
+    if t["scene"] is not None:
+        if t["scene"] > len(scenes):
+            issues.append(Issue("error", f"{tp}.scene", f"there are only {len(scenes)} scenes"))
+        else:
+            out["scene"] = t["scene"] - 1
+    return out
+
+
+def _check_elements(els: Any, sp: str, issues: list[Issue], base_dir: str, theme: dict) -> list[dict]:
+    if not isinstance(els, list):
+        issues.append(Issue("error", f"{sp}.elements", "expected a list"))
+        els = []
+    norm_els = []
+    for j, e in enumerate(els):
+        ep = f"{sp}.elements[{j}]"
+        t = e.get("type") if isinstance(e, dict) else None
+        if t not in ELEMENTS:
+            if isinstance(e, dict) and t is None:
+                issues.append(Issue("error", f"{ep}.type", "required field is missing", "one of: " + ", ".join(ELEMENTS)))
+            elif isinstance(e, dict):
+                issues.append(Issue("error", f"{ep}.type", f"unknown element type {json.dumps(t)}", _suggest(str(t), ELEMENTS)))
+            else:
+                issues.append(Issue("error", ep, "expected an object"))
+            continue
+        fields = {**COMMON, **ELEMENTS[t]}
+        themed = {k: v for k, v in theme["el"].get(t, {}).items() if k in fields}
+        el = _check_obj({**themed, **e}, fields, ep, issues, base_dir)
+        el["_path"] = ep
+        if el["animate"] is None:
+            el["animate"] = DEFAULT_ANIM[t]
+        if el["animate"] == "words" and t not in ("text", "bullets"):
+            el["animate"] = "pop"
+        if el["animate"] == "type" and t not in ("text", "code"):
+            issues.append(Issue("error", f"{ep}.animate", '"type" only works on text and code'))
+            el["animate"] = "fade"
+        if el["end"] is not None and el["end"] <= el["start"]:
+            issues.append(Issue("error", f"{ep}.end", f"end ({el['end']}) must be after start ({el['start']})"))
+            el["end"] = None
+        if t == "bars":
+            el["items"] = _check_bars(el["items"], f"{ep}.items", issues)
+        if t == "manim":
+            _check_manim(el, ep, issues)
+        norm_els.append(el)
+    return norm_els
 
 
 def _check_manim(el: dict, path: str, issues: list[Issue]) -> None:
@@ -647,7 +706,10 @@ def json_schema() -> dict:
          "description": "Generated style (" + ", ".join(MUSIC_STYLES) + ") or an audio file path"},
         {"const": False}, {"type": "null"}, music_obj,
     ]}
-    top = _obj_schema(TOP, {"background": bg, "music": music, "scenes": {"type": "array", "minItems": 1, "items": scene}})
+    thumb_obj = _obj_schema(THUMBNAIL, {"background": bg, "elements": {"type": "array", "minItems": 1, "items": {"oneOf": elements}}})
+    thumbnail = {"oneOf": [{"type": "boolean"}, thumb_obj], "description": TOP["thumbnail"].doc}
+    top = _obj_schema(TOP, {"background": bg, "music": music, "thumbnail": thumbnail,
+                            "scenes": {"type": "array", "minItems": 1, "items": scene}})
     top["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     top["title"] = "Paibot Video spec"
     top["properties"]["$schema"] = {"type": "string"}

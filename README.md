@@ -124,6 +124,31 @@ Run `paibot-video guide` for the full list of fields.
 
 A small logo and/or text on every frame, in the margin outside the safe area so it never covers the content, and fixed while the camera moves.
 
+## Thumbnail
+
+`render` also writes a cover picture next to the MP4 (`video.mp4` → `video.thumb.png`), in the video's size and look.
+By default it is scene 1 once its entrances are done.
+
+```json
+"thumbnail": {"scene": 3, "at": 2.5}
+```
+
+picks another moment, and
+
+```json
+"thumbnail": {
+  "elements": [
+    {"type": "text", "text": "(a+b)² は なぜ\na²+**2ab**+b²？", "size": 120},
+    {"type": "manim", "file": "square.py", "scene": "Area", "height": 1050}
+  ],
+  "intro": 0.5
+}
+```
+
+lays out a picture of its own, like a scene (a Manim element shows its last frame). `check` checks it like a scene.
+`"intro": 0.5` also holds the picture for half a second at the start of the video, for apps such as YouTube Shorts
+that let you pick a frame rather than upload a cover. `"thumbnail": false` turns it off.
+
 ## Sound
 
 - **`narration`**: text that is spoken. With `"language": "auto"` (default), narration containing CJK characters selects Japanese; otherwise it selects English. You can set `"language": "ja"` or `"language": "en"` for the whole video. For Japanese, Paibot Video uses the first engine that is running:
@@ -224,6 +249,7 @@ paibot-video render examples/music.json --preview -o music.mp4
 | `render SPEC [-o out.mp4] [--preview] [--scale 0.5] [--fps N] [--force] [--json]` | Write the MP4. Refuses if `check` finds errors unless `--force`. `--preview` is half size at 15 fps. |
 | `check SPEC [--json] [--sheet PNG] [--no-tts] [--allow-code]` | Validate and lint. Exit code 1 if there are errors. |
 | `frame SPEC (--scene N \| --at SEC) [-o PNG]` | One frame. |
+| `thumbnail SPEC [-o PNG]` | Only the cover picture (`render` writes it too). |
 | `sheet SPEC [-o PNG] [--cols N]` | All scenes in one image. |
 | `music [STYLE] [--length SEC] [--seed N] [--bpm N] [-o WAV]` | List styles or write a standalone WAV to listen to. |
 | `schema` / `guide` / `init [PATH]` | JSON Schema, the authoring guide, an example spec. |

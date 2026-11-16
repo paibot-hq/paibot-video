@@ -16,8 +16,8 @@ import os
 from .timeline import Timeline, need, sfx_file
 
 
-def audio_inputs(r: Renderer, tl: Timeline) -> tuple[list[str], str | None]:
-    """Extra ffmpeg inputs and a filter graph producing [aout]."""
+def audio_inputs(r: Renderer, tl: Timeline, delay: float = 0.0) -> tuple[list[str], str | None]:
+    """Extra ffmpeg inputs and a filter graph producing [aout], all of it starting `delay` seconds late."""
     args: list[str] = []
     parts: list[str] = []
     labels: list[str] = []
@@ -56,10 +56,11 @@ def audio_inputs(r: Renderer, tl: Timeline) -> tuple[list[str], str | None]:
         n += 1
     if not labels:
         return args, None
+    tail = (f"adelay={int(round(delay * 1000))}:all=1," if delay > 0 else "") + "apad[aout]"
     if len(labels) == 1:
-        graph = ";".join(parts) + f";{labels[0]}apad[aout]"
+        graph = ";".join(parts) + f";{labels[0]}{tail}"
     else:
-        graph = ";".join(parts) + f";{''.join(labels)}amix=inputs={len(labels)}:normalize=0:dropout_transition=0,apad[aout]"
+        graph = ";".join(parts) + f";{''.join(labels)}amix=inputs={len(labels)}:normalize=0:dropout_transition=0,{tail}"
     return args, graph
 
 
@@ -74,11 +75,14 @@ def duck_filter(tl: Timeline, volume: float, duck: float, ramp: float = 0.35) ->
 
 
 def render_video(r: Renderer, out: str, *, fps: int | None = None, crf: int = 20, preset: str = "medium",
-                 progress: Callable[[int, int], None] | None = None) -> None:
+                 progress: Callable[[int, int], None] | None = None,
+                 intro: Image.Image | None = None, intro_len: float = 0.0) -> None:
+    """Write the MP4. With `intro`, that picture is held for `intro_len` seconds first and everything else starts after it."""
     tl = r.tl
     fps = fps or r.spec.fps
-    frames = max(1, int(round(tl.total * fps)))
-    a_args, graph = audio_inputs(r, tl)
+    lead = int(round(intro_len * fps)) if intro is not None else 0
+    frames = lead + max(1, int(round(tl.total * fps)))
+    a_args, graph = audio_inputs(r, tl, lead / fps)
     cmd = [need("ffmpeg"), "-y", "-hide_banner", "-loglevel", "error",
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{r.W}x{r.H}", "-r", str(fps), "-i", "-", *a_args]
     if graph:
@@ -89,9 +93,9 @@ def render_video(r: Renderer, out: str, *, fps: int | None = None, crf: int = 20
             "-movflags", "+faststart", "-t", f"{frames / fps:.3f}", out]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
+        held = intro.convert("RGB").tobytes() if lead else b""
         for n in range(frames):
-            img = r.frame(n / fps)
-            proc.stdin.write(img.tobytes())
+            proc.stdin.write(held if n < lead else r.frame((n - lead) / fps).tobytes())
             if progress:
                 progress(n + 1, frames)
         proc.stdin.close()
