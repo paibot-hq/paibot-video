@@ -1,0 +1,85 @@
+# Render a spec to MP4 on a GitHub-hosted runner and keep the result as an artifact.
+# Run it from the Actions tab ("Run workflow"), or:
+#   gh workflow run render.yml -f spec=examples/english-kokoro.json
+#
+# Voices: Kokoro (English) works here. AivisSpeech and VOICEVOX are not started on the runner,
+# and macOS `say` does not exist on Linux, so a Japanese spec needs "tts": "none" for now.
+name: render
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: Spec JSON to render (path in this repository)
+        required: true
+        default: examples/english-kokoro.json
+      preview:
+        description: Half size, 15 fps, fast encode
+        type: boolean
+        default: false
+      allow_code:
+        description: Run the Python code of manim elements (installs Manim and LaTeX)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SPEC: ${{ inputs.spec }}
+      PREVIEW: ${{ inputs.preview }}
+      # uv extras and the flag that lets manim code run, both decided by the allow_code input
+      EXTRAS: ${{ inputs.allow_code && '--extra kokoro --extra manim' || '--extra kokoro' }}
+      CODE: ${{ inputs.allow_code && '--allow-code' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg and fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk
+
+      - name: Install LaTeX and Manim's system libraries
+        if: inputs.allow_code
+        run: |
+          sudo apt-get install -y -qq texlive texlive-latex-extra texlive-fonts-extra texlive-science \
+            libcairo2-dev libpango1.0-dev
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Paibot Video
+        run: |
+          echo "NAME=$(basename "$SPEC" .json)" >> "$GITHUB_ENV"
+          uv sync $EXTRAS
+
+      - name: Cache Kokoro models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/paibot-video/kokoro-v1.0
+          key: kokoro-v1.0
+
+      - name: Download Kokoro models
+        run: uv run $EXTRAS paibot-video setup-kokoro
+
+      - name: Check (and a picture of every scene)
+        run: |
+          mkdir -p out
+          uv run $EXTRAS paibot-video check "$SPEC" --sheet "out/$NAME.sheet.png" $CODE
+
+      - name: Render
+        run: |
+          flags="$CODE"
+          if [ "$PREVIEW" = "true" ]; then flags="$flags --preview"; fi
+          uv run $EXTRAS paibot-video render "$SPEC" -o "out/$NAME.mp4" -q $flags
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.NAME }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 14
