@@ -7,6 +7,9 @@
 name: render
 
 on:
+  # TEMPORARY: lets the branch run before the workflow is on main; remove before merging.
+  push:
+    branches: [ci/render-workflow]
   workflow_dispatch:
     inputs:
       spec:
@@ -30,7 +33,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      SPEC: ${{ inputs.spec }}
+      SPEC: ${{ inputs.spec || 'examples/english-kokoro.json' }}
       PREVIEW: ${{ inputs.preview }}
       # uv extras and the flag that lets manim code run, both decided by the allow_code input
       EXTRAS: ${{ inputs.allow_code && '--extra kokoro --extra manim' || '--extra kokoro' }}
